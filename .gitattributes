@@ -1,0 +1,7 @@
+# Quebras de linha LF em tudo, também no Windows
+* text=auto eol=lf
+*.bat text eol=crlf
+
+*.png binary
+*.wav binary
+*.ico binary
