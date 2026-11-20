@@ -15,6 +15,8 @@ Terror de celular jogado em pé, no seu quarto. A câmera mostra o quarto de ver
 - **Quando ele corre**, espere chegar perto e dê o **choque**. Cedo demais não pega, e o choque leva um tempo para recarregar.
 - **A lanterna gasta a pilha** enquanto você segura e recarrega apagada. A do celular acende junto.
 - Espante-o algumas vezes e ele desiste até amanhecer. Cada noite vencida libera a próxima, mais difícil: fintas na 2, corrida invisível na 3 e, na 4, **a Mariposa**, que só avança enquanto a lanterna está acesa.
+- **Som 3D com fone:** dá para ouvir se ele está na frente ou atrás.
+- **Conquistas e diário:** medalhas por noite e, a cada manhã, um achado que conta o resto da história.
 - **Menu** com treino jogável, noites e recordes, configurações (volume, vibração, câmera, giro, jogar sentado) e um trecho da história antes de cada noite.
 
 <p>
@@ -23,7 +25,7 @@ Terror de celular jogado em pé, no seu quarto. A câmera mostra o quarto de ver
   <img src="telas/7_mariposa.png" width="160" alt="A Mariposa">
 </p>
 
-Versão atual: **0.2.0**, para testar ([o que mudou](CHANGELOG.md)).
+Versão atual: **0.3.0**, para testar ([o que mudou](CHANGELOG.md)).
 
 ## Instalando
 

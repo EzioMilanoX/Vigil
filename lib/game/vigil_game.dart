@@ -61,11 +61,20 @@ enum CueKind {
 
 /// Um aviso de som vindo de um lado. [pan] vai de -1 (esquerda) a 1 (direita).
 class Cue {
-  const Cue(this.kind, this.pan, {this.behind = false, this.near = false});
+  const Cue(
+    this.kind,
+    this.pan, {
+    this.behind = false,
+    this.near = false,
+    this.angle = 0,
+  });
   final CueKind kind;
   final double pan;
   final bool behind;
   final bool near;
+
+  /// De onde vem, em relação a para onde você olha (0 = frente, + = direita).
+  final double angle;
 }
 
 /// As regras de uma noite. Tempo em segundos, ângulos em radianos, distância
@@ -210,6 +219,11 @@ class VigilGame {
 
   double shockReady = 0;
 
+  /// Para o recorde e as conquistas.
+  double lanternTime = 0;
+  int misses = 0;
+  int perfectHits = 0;
+
   /// O chiado falso: um ângulo e quanto tempo ainda dura.
   double? fakeStaticAngle;
   double _fakeLeft = 0;
@@ -270,9 +284,11 @@ class VigilGame {
         distance <= rules.shockWindow &&
         offset.abs() <= rules.aimHalfWidth;
     if (!hit) {
+      misses++;
       _cue(CueKind.miss);
       return false;
     }
+    if (distance <= rules.shockWindow * 0.5) perfectHits++;
     _cue(CueKind.hit, near: true);
     repels++;
     mode = Mode.gone;
@@ -296,6 +312,7 @@ class VigilGame {
     shockReady = max(0, shockReady - dt);
 
     if (lanternHeld && battery > 0) {
+      lanternTime += dt;
       battery = max(0, battery - dt / rules.batterySeconds);
     } else if (!lanternHeld) {
       battery = min(1, battery + dt / rules.rechargeSeconds);
@@ -424,6 +441,8 @@ class VigilGame {
       _cueAt(kind, offset, near: near);
 
   void _cueAt(CueKind kind, double d, {bool near = false}) {
-    _cues.add(Cue(kind, sin(d), behind: d.abs() > pi / 2, near: near));
+    _cues.add(
+      Cue(kind, sin(d), behind: d.abs() > pi / 2, near: near, angle: d),
+    );
   }
 }

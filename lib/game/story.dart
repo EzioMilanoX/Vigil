@@ -32,3 +32,25 @@ String storyFor(int night) => switch (night) {
     'Noite $night. Os casulos voltaram a crescer. A etiqueta tem uma medida '
         'nova, cada vez mais exata.',
 };
+
+/// O que se acha de manhã, depois de sobreviver à noite [night]: vai para o
+/// diário. Peças soltas que contam o resto da história.
+String foundAfter(int night) => switch (night) {
+  1 =>
+    'Uma etiqueta de papel pardo, presa no pé dele: "Prova 1 de 7. Cliente '
+        'ainda resiste à medida."',
+  2 => 'Um alfinete enfiado no batente da porta, na altura do meu pescoço.',
+  3 =>
+    'Um recibo do Ateliê Valente, de 1987, no nome de alguém que eu não '
+        'conheço. Endereço: o meu apartamento.',
+  4 =>
+    'Asas de mariposa na janela, arrumadas em fila, como amostras de tecido.',
+  5 =>
+    'Uma fita métrica enrolada no meu travesseiro. Parada em 38 centímetros.',
+  6 =>
+    'O casulo com o meu nome está mais quente que os outros. Tem alguma coisa '
+        'se mexendo dentro.',
+  7 =>
+    'Cinzas na pia e uma linha preta de costura, que eu não consigo jogar fora.',
+  _ => 'Mais uma etiqueta. A letra está mais parecida com a minha.',
+};

@@ -21,6 +21,8 @@ Terror de celular (Android; Windows só para testar). Idioma: PT-BR. Repositóri
 - `lib/ui/title_screen.dart` — o menu (TitleScreen), NightsScreen, StoryScreen (texto em `lib/game/story.dart`) e SettingsScreen.
 - `lib/data/save.dart` — noite liberada, recordes por noite, treino feito e configurações, num JSON em `shared_preferences`.
 - `lib/game/tutorial.dart` — o treino: `TutorialCoach` monta cada situação com o jogo em `scripted` (ele não anda nem mata sozinho).
+- Som 3D: `tools/gerar_sons.py` grava `assets/sons/3d/<som>_<graus>.wav` (8 direções, binaural aproximado: atraso e volume entre ouvidos, sombra da cabeça, trás abafado); `Sounds.direction(angle)` escolhe a mais próxima. `Cue.angle` é o ângulo relativo ao olhar.
+- Conquistas: `lib/game/achievements.dart` (`earnedBy(NightResult)`); o jogo conta `lanternTime`, `misses`, `perfectHits`; `Save.finish` guarda recorde e conquistas. Diário: `JournalScreen` com `storyFor` e `foundAfter` (`lib/game/story.dart`).
 - Noites: 2 = fintas (`feintChance`), 3 = corrida invisível (`cloakedCharge`), 4+ = a Mariposa (`moth`: avança com a luz acesa, recua no escuro). `Rules.novelty(n)` é o texto do que a noite traz.
 - Emulador para testar sem o celular: ver "Emulador" abaixo.
 

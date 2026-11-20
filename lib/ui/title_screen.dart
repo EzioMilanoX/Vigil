@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../data/save.dart';
+import '../game/achievements.dart';
 import '../game/story.dart';
 import '../game/vigil_game.dart';
 import 'game_screen.dart';
@@ -115,6 +116,10 @@ class _TitleScreenState extends State<TitleScreen>
                         useSensors: widget.useSensors,
                       ),
                     ),
+                  ),
+                  _MenuButton(
+                    label: 'Diário e conquistas',
+                    onTap: () => _open(JournalScreen(save: save)),
                   ),
                   _MenuButton(
                     label: 'Configurações',
@@ -433,6 +438,15 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               SwitchListTile(
+                title: const Text('Som 3D (com fone)'),
+                subtitle: const Text(
+                  'Dá para ouvir se ele está na frente ou atrás. '
+                  'Sem fone, desligue: fica só esquerda e direita.',
+                ),
+                value: s.sound3d,
+                onChanged: (v) => set(() => s.sound3d = v),
+              ),
+              SwitchListTile(
                 title: const Text('Vibração'),
                 subtitle: const Text('Passos, corrida e choque no corpo.'),
                 value: s.vibration,
@@ -496,4 +510,125 @@ class _Header extends StatelessWidget {
       style: const TextStyle(color: Colors.white38, letterSpacing: 2),
     ),
   );
+}
+
+/// O diário (a história e o que se achou a cada manhã) e as conquistas.
+class JournalScreen extends StatelessWidget {
+  const JournalScreen({super.key, required this.save});
+
+  final Save save;
+
+  @override
+  Widget build(BuildContext context) {
+    // Noites vencidas: as anteriores à liberada.
+    final won = [for (var n = 1; n < save.unlocked; n++) n];
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          title: const Text('Diário e conquistas'),
+          bottom: TabBar(
+            tabs: [
+              const Tab(text: 'Diário'),
+              Tab(
+                text:
+                    'Conquistas ${save.unlockedAchievements.length}/'
+                    '${achievements.length}',
+              ),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            won.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text(
+                        'Ainda nada. Sobreviva a uma noite e veja o que '
+                        'aparece de manhã.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      for (final n in won) ...[
+                        Text(
+                          'NOITE $n',
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          storyFor(n),
+                          style: const TextStyle(color: bone, height: 1.5),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0x44E8DFC8)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.push_pin_outlined,
+                                size: 18,
+                                color: Colors.white38,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  foundAfter(n),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                      ],
+                    ],
+                  ),
+            ListView(
+              children: [
+                for (final a in achievements)
+                  Builder(
+                    builder: (context) {
+                      final got = save.unlockedAchievements.contains(a.id);
+                      return ListTile(
+                        leading: Icon(
+                          got ? Icons.military_tech : Icons.lock_outline,
+                          color: got ? bone : Colors.white24,
+                        ),
+                        title: Text(
+                          a.title,
+                          style: TextStyle(
+                            color: got ? Colors.white : Colors.white38,
+                          ),
+                        ),
+                        subtitle: Text(a.description),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

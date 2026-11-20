@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../data/save.dart';
+import '../game/achievements.dart';
 import '../game/tutorial.dart';
 import '../game/vigil_game.dart';
 import 'room_painter.dart';
@@ -72,6 +73,9 @@ class _GameScreenState extends State<GameScreen>
   /// O susto quando algo pega você: segundos que ainda faltam na tela.
   double _scare = 0;
 
+  /// Conquistas ganhas nesta noite, para a tela do fim.
+  var _newAchievements = <Achievement>[];
+
   Settings get _settings => widget.save.settings;
 
   @override
@@ -96,7 +100,7 @@ class _GameScreenState extends State<GameScreen>
       }
     }
     if (widget.useSensors) {
-      _sounds = Sounds(volume: _settings.volume);
+      _sounds = Sounds(volume: _settings.volume, binaural: _settings.sound3d);
       if (_settings.camera) _openCamera();
     }
   }
@@ -173,6 +177,7 @@ class _GameScreenState extends State<GameScreen>
     _scare = 0;
     _paused = false;
     _recorded = false;
+    _newAchievements = [];
   }
 
   @override
@@ -244,11 +249,21 @@ class _GameScreenState extends State<GameScreen>
     _sounds?.silence();
     if (_recorded || widget.tutorial) return;
     _recorded = true;
-    if (g.phase == Phase.won) {
-      widget.save.won(widget.night, g.time, g.repels);
-    } else {
-      widget.save.lost(widget.night, g.repels);
-    }
+    widget.save
+        .finish(
+          NightResult(
+            night: widget.night,
+            won: g.phase == Phase.won,
+            time: g.time,
+            repels: g.repels,
+            lanternTime: g.lanternTime,
+            misses: g.misses,
+            perfectHits: g.perfectHits,
+          ),
+        )
+        .then((novas) {
+          if (mounted) setState(() => _newAchievements = novas);
+        });
   }
 
   /// Com ele perto, o coração bate, mais rápido quanto mais perto.
@@ -463,6 +478,7 @@ class _GameScreenState extends State<GameScreen>
               FilledButton(
                 onPressed: () {
                   widget.save.tutorialDone = true;
+                  widget.save.unlock(['treino']);
                   widget.save.store();
                   _toStory(1);
                 },
@@ -576,6 +592,14 @@ class _GameScreenState extends State<GameScreen>
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white54),
               ),
+              for (final a in _newAchievements)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Chip(
+                    avatar: const Icon(Icons.military_tech, size: 18),
+                    label: Text('Conquista: ${a.title}'),
+                  ),
+                ),
               const SizedBox(height: 24),
               if (won)
                 FilledButton(

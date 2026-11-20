@@ -1,5 +1,11 @@
 # Mudanças
 
+## 0.3.0 (2026-11-20)
+
+- **Som 3D (com fone):** passos, rangidos, o grito, as batidas e o zumbido vêm gravados em 8 direções, com a diferença de tempo e de volume entre os ouvidos e o som de trás mais abafado. Dá para ouvir se ele está na frente ou atrás, não só de que lado. Sem fone, desligue em Configurações.
+- **Conquistas:** oito, de "Primeira vigília" a "Uma semana em claro" (choque perfeito, noite sem errar, noite quase sem lanterna, 30 espantos...). Aparecem no fim da noite em que você ganha.
+- **Diário:** a história de cada noite vencida e o que se acha na manhã seguinte (etiquetas, alfinetes, um recibo de 1987...).
+
 ## 0.2.0 (2026-11-20)
 
 - **Menu de verdade:** o manequim parado no escuro ao fundo, com a luz falhando; continuar da noite liberada, noites e recordes, treino e configurações.

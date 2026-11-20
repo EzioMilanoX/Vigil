@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:audioplayers/audioplayers.dart';
 
 import '../game/vigil_game.dart';
@@ -37,10 +39,24 @@ class _Loop {
 
 /// Os sons da noite, com o lado (pan) de onde vêm. Com fone, é a pista principal.
 class Sounds {
-  Sounds({this.volume = 1});
+  Sounds({this.volume = 1, this.binaural = true});
 
   /// O volume geral (configurações).
   final double volume;
+
+  /// Som 3D (fone): toca a versão já espacializada da direção mais próxima,
+  /// que diz também se é na frente ou atrás. Desligado: só esquerda/direita.
+  final bool binaural;
+
+  /// Os sons que têm versão 3D em assets/sons/3d (8 direções).
+  static const _with3d = {'passo', 'rangido', 'grito', 'batida', 'zumbido'};
+
+  /// A direção mais próxima, em graus, entre as 8 gravadas.
+  static int direction(double angle) {
+    final a = ((angle % tau) + tau) % tau;
+    return ((a / (pi / 4)).round() % 8) * 45;
+  }
+
   final _vivos = <AudioPlayer>{};
   final _chiado = _Loop('sons/chiado.wav');
   final _zumbido = _Loop('sons/zumbido.wav');
@@ -57,6 +73,11 @@ class Sounds {
       CueKind.shadow => ('sons/passo.wav', 0.3, false),
       CueKind.buzz => ('sons/zumbido.wav', c.near ? 0.9 : 0.5, false),
     };
+    final name = asset.substring(5, asset.length - 4);
+    if (binaural && !centered && _with3d.contains(name)) {
+      final g = direction(c.angle).toString().padLeft(3, '0');
+      return _play('sons/3d/${name}_$g.wav', volume: vol);
+    }
     return _play(
       asset,
       balance: centered ? 0 : c.pan,

@@ -129,6 +129,58 @@ def zumbido():
     return s
 
 
+RATE_3D = 22050
+DIRECOES = range(0, 360, 45)
+
+
+def _reamostrar(s, de, para):
+    passo = de / para
+    return [s[int(i * passo)] for i in range(int(len(s) / passo))]
+
+
+def _passa_baixa(s, corte):
+    """Filtro de um polo: corte em Hz, na taxa do 3D."""
+    a = 1 - math.exp(-2 * math.pi * corte / RATE_3D)
+    out, y = [], 0.0
+    for v in s:
+        y += a * (v - y)
+        out.append(y)
+    return out
+
+
+def binaural(mono, graus):
+    """Põe um som mono numa direção em volta da cabeça (0 = frente, 90 = direita).
+
+    Aproximação de HRTF sem tabela: atraso entre os ouvidos (até 0,66 ms),
+    diferença de volume, a sombra da cabeça abafando o ouvido de longe e,
+    atrás, o som todo mais abafado (a orelha filtra o que vem de trás).
+    """
+    th = math.radians(graus)
+    s = _reamostrar(mono, RATE, RATE_3D)
+    if math.cos(th) < 0:
+        s = _passa_baixa(s, 1800 + 1400 * (1 + math.cos(th)))
+    lado = math.sin(th)  # + direita
+    atraso = int(abs(lado) * 0.00066 * RATE_3D)
+    perto, longe = s, [0.0] * atraso + _passa_baixa(s, 900 + 4000 * (1 - abs(lado)))
+    longe = [v * (1 - 0.5 * abs(lado)) for v in longe[: len(s)]]
+    esq, dir_ = (longe, perto) if lado > 0 else (perto, longe)
+    return esq, dir_
+
+
+def salvar_estereo(caminho, esq, dir_):
+    pico = max(1e-9, max(max(abs(v) for v in esq), max(abs(v) for v in dir_)))
+    with wave.open(caminho, "wb") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(RATE_3D)
+        w.writeframes(
+            b"".join(
+                struct.pack("<hh", int(30000 * a / pico), int(30000 * b / pico))
+                for a, b in zip(esq, dir_)
+            )
+        )
+
+
 if __name__ == "__main__":
     pasta = sys.argv[1] if len(sys.argv) > 1 else "assets/sons"
     for nome, gerar in [
@@ -142,4 +194,20 @@ if __name__ == "__main__":
         ("zumbido", zumbido),
     ]:
         salvar(pasta, nome, gerar())
+    # As versões em 3D (fone): uma por direção, de 45 em 45 graus.
+    import os
+
+    os.makedirs(f"{pasta}/3d", exist_ok=True)
+    random.seed(11)
+    for nome, gerar in [
+        ("passo", passo),
+        ("rangido", rangido),
+        ("grito", grito),
+        ("batida", batida),
+        ("zumbido", zumbido),
+    ]:
+        mono = gerar()
+        for g in DIRECOES:
+            esq, dir_ = binaural(mono, g)
+            salvar_estereo(f"{pasta}/3d/{nome}_{g:03d}.wav", esq, dir_)
     print("ok")

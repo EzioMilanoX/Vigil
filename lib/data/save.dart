@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../game/achievements.dart';
+
 /// O que dá para ajustar no menu de configurações.
 class Settings {
   double volume = 1;
@@ -16,6 +18,9 @@ class Settings {
   /// Jogar sentado: sem giroscópio, só arrastando.
   bool dragOnly = false;
 
+  /// Som 3D para fone (frente e trás, não só esquerda e direita).
+  bool sound3d = true;
+
   Map<String, Object> toJson() => {
     'volume': volume,
     'vibration': vibration,
@@ -23,6 +28,7 @@ class Settings {
     'sensitivity': sensitivity,
     'invertTurn': invertTurn,
     'dragOnly': dragOnly,
+    'sound3d': sound3d,
   };
 
   void load(Map<String, dynamic> j) {
@@ -32,6 +38,7 @@ class Settings {
     sensitivity = (j['sensitivity'] as num?)?.toDouble() ?? sensitivity;
     invertTurn = j['invertTurn'] as bool? ?? invertTurn;
     dragOnly = j['dragOnly'] as bool? ?? dragOnly;
+    sound3d = j['sound3d'] as bool? ?? sound3d;
   }
 }
 
@@ -66,6 +73,7 @@ class Save extends ChangeNotifier {
   int unlocked = 1;
   int totalRepels = 0;
   bool tutorialDone = false;
+  final unlockedAchievements = <String>{};
   final settings = Settings();
   final records = <int, NightRecord>{};
 
@@ -86,6 +94,9 @@ class Save extends ChangeNotifier {
       unlocked = j['unlocked'] as int? ?? 1;
       totalRepels = j['totalRepels'] as int? ?? 0;
       tutorialDone = j['tutorialDone'] as bool? ?? false;
+      unlockedAchievements.addAll([
+        for (final a in j['achievements'] as List? ?? const []) '$a',
+      ]);
       settings.load(j['settings'] as Map<String, dynamic>? ?? const {});
       final recs = j['records'] as Map<String, dynamic>? ?? const {};
       for (final e in recs.entries) {
@@ -110,6 +121,7 @@ class Save extends ChangeNotifier {
           'unlocked': unlocked,
           'totalRepels': totalRepels,
           'tutorialDone': tutorialDone,
+          'achievements': unlockedAchievements.toList()..sort(),
           'settings': settings.toJson(),
           'records': {
             for (final e in records.entries) '${e.key}': e.value.toJson(),
@@ -118,6 +130,28 @@ class Save extends ChangeNotifier {
       );
     } catch (_) {}
   }
+
+  /// Guarda o fim de uma noite e devolve as conquistas novas.
+  Future<List<Achievement>> finish(NightResult r) async {
+    if (r.won) {
+      final rec = recordOf(r.night);
+      rec.wins++;
+      if (rec.bestTime == null || r.time < rec.bestTime!) rec.bestTime = r.time;
+      if (r.night + 1 > unlocked) unlocked = r.night + 1;
+    } else {
+      recordOf(r.night).deaths++;
+    }
+    totalRepels += r.repels;
+    final novas = unlock(earnedBy(r, totalRepels: totalRepels));
+    await store();
+    return novas;
+  }
+
+  /// Marca conquistas; devolve só as que ainda não tinha.
+  List<Achievement> unlock(Iterable<String> ids) => [
+    for (final id in ids)
+      if (unlockedAchievements.add(id)) ?achievementById(id),
+  ];
 
   Future<void> won(int night, double time, int repels) {
     final r = recordOf(night);
