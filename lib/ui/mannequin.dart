@@ -226,3 +226,88 @@ void drawMannequin(
     }
   }
 }
+
+/// Desenha a Mariposa: corpo escuro e quatro asas pálidas com olhos falsos.
+/// [flap] de -1 a 1 abre e fecha as asas.
+void drawMoth(Canvas canvas, Offset c, double size, double flap) {
+  final wing = Paint()
+    ..shader = RadialGradient(
+      colors: const [Color(0xFFD9CFBC), Color(0xFF8C8170), Color(0xFF3B342B)],
+      stops: const [0, 0.6, 1],
+    ).createShader(Rect.fromCircle(center: c, radius: size));
+  final edge = Paint()
+    ..color = const Color(0xFF2A241D)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = max(1, size * 0.02);
+  final open = 0.75 + 0.25 * flap;
+  for (final side in const [-1.0, 1.0]) {
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.scale(side * open, 1);
+    final upper = Path()
+      ..moveTo(0, -size * 0.05)
+      ..cubicTo(
+        size * 0.4,
+        -size * 0.75,
+        size * 1.05,
+        -size * 0.6,
+        size * 0.95,
+        -size * 0.05,
+      )
+      ..cubicTo(size * 0.7, size * 0.1, size * 0.3, size * 0.05, 0, 0)
+      ..close();
+    final lower = Path()
+      ..moveTo(0, size * 0.02)
+      ..cubicTo(
+        size * 0.35,
+        size * 0.1,
+        size * 0.75,
+        size * 0.3,
+        size * 0.55,
+        size * 0.7,
+      )
+      ..cubicTo(size * 0.35, size * 0.8, size * 0.1, size * 0.45, 0, size * 0.1)
+      ..close();
+    canvas
+      ..drawPath(upper, wing)
+      ..drawPath(upper, edge)
+      ..drawPath(lower, wing)
+      ..drawPath(lower, edge);
+    // O olho falso na asa: o que faz parecer que ela olha para você.
+    canvas
+      ..drawCircle(
+        Offset(size * 0.55, -size * 0.35),
+        size * 0.13,
+        Paint()..color = const Color(0xFF1A1511),
+      )
+      ..drawCircle(
+        Offset(size * 0.55, -size * 0.35),
+        size * 0.06,
+        Paint()..color = const Color(0xFFE8E0D0),
+      );
+    canvas.restore();
+  }
+  final body = Rect.fromCenter(
+    center: c.translate(0, size * 0.15),
+    width: size * 0.16,
+    height: size * 0.75,
+  );
+  canvas.drawOval(body, Paint()..color = const Color(0xFF1A1511));
+  final antenna = Paint()
+    ..color = const Color(0xFF1A1511)
+    ..strokeWidth = max(1, size * 0.015)
+    ..style = PaintingStyle.stroke;
+  for (final side in const [-1.0, 1.0]) {
+    canvas.drawPath(
+      Path()
+        ..moveTo(c.dx, c.dy - size * 0.2)
+        ..quadraticBezierTo(
+          c.dx + side * size * 0.1,
+          c.dy - size * 0.5,
+          c.dx + side * size * 0.3,
+          c.dy - size * 0.55,
+        ),
+      antenna,
+    );
+  }
+}

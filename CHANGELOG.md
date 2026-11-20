@@ -1,5 +1,17 @@
 # Mudanças
 
+## 0.2.0 (2026-11-20)
+
+- **Menu de verdade:** o manequim parado no escuro ao fundo, com a luz falhando; continuar da noite liberada, noites e recordes, treino e configurações.
+- **Treino jogável:** quatro passos guiados (achar, iluminar, seguir o chiado, o choque na hora certa), com "AGORA!" quando é a hora.
+- **História:** um trecho antes de cada noite (o Ateliê Valente, as etiquetas, os casulos), escrito aos poucos.
+- **Noites e recordes:** vitórias, mortes e o amanhecer mais rápido de cada noite; o que cada noite traz de novo.
+- **Configurações:** volume, vibração, câmera, sensibilidade e inversão do giro, e jogar sentado (só arrastando).
+- **Mais difícil e mais tenso:** ele chega mais rápido sem ninguém olhando e a janela do choque é mais curta. Da noite 2, fintas: ele corre e para no meio. Da noite 3, corre invisível. A pilha falha mais justo quando ele corre.
+- **A Mariposa (noite 4+):** só avança enquanto a lanterna está acesa e vai embora no escuro; o zumbido diz o lado. Briga com o manequim, que precisa da luz.
+- **Sustos falsos:** batidas na parede e um vulto que cruza a tela.
+- **Pausa:** botão na tela e pausa sozinho quando o celular toca ou você sai do app.
+
 ## 0.1.0 (2026-11-20)
 
 Primeira versão para testar.

@@ -18,7 +18,12 @@ class RoomPainter extends CustomPainter {
     required this.flashPan,
     this.hasCamera = false,
     this.clock = 0,
+    this.shadow = -1,
   });
+
+  /// Um vulto passando pela tela (susto falso): de 0 a 1 enquanto atravessa,
+  /// negativo quando não há.
+  final double shadow;
 
   final VigilGame game;
 
@@ -74,6 +79,8 @@ class RoomPainter extends CustomPainter {
     }
 
     _mannequin(canvas, size, pxPerRad, beamC, beamR, rng);
+    _moth(canvas, size, pxPerRad);
+    _passingShadow(canvas, size);
     _static(canvas, size, rng);
     _grain(canvas, size, rng);
 
@@ -199,6 +206,31 @@ class RoomPainter extends CustomPainter {
     }
   }
 
+  void _moth(Canvas canvas, Size size, double pxPerRad) {
+    final g = game;
+    if (!g.mothVisible) return;
+    final x = size.width / 2 + g.mothOffset * pxPerRad;
+    final s = size.width * (0.12 + 0.45 * (1 - g.mothDistance));
+    final y = size.height * (0.38 + 0.04 * sin(clock * 3));
+    drawMoth(canvas, Offset(x, y), s, sin(clock * 38));
+  }
+
+  /// O vulto do susto falso: uma silhueta que cruza a tela de um lado a outro.
+  void _passingShadow(Canvas canvas, Size size) {
+    if (shadow < 0 || shadow > 1) return;
+    final x = -size.width * 0.3 + shadow * size.width * 1.6;
+    drawMannequin(
+      canvas,
+      Offset(x, size.height * 0.8),
+      size.height * 0.55,
+      const MannequinStyle(
+        body: Color(0xEE000000),
+        edge: Color(0x22FFFFFF),
+        eyes: Color(0x00000000),
+      ),
+    );
+  }
+
   /// O chiado: barras que cortam a tela e um ruído grosso.
   void _static(Canvas canvas, Size size, Random rng) {
     final s = game.staticLevel;
@@ -254,8 +286,11 @@ class RoomPainter extends CustomPainter {
 
 /// O susto: o rosto dele ocupa a tela. [t] vai de 1 a 0.
 class ScarePainter extends CustomPainter {
-  ScarePainter(this.t);
+  ScarePainter(this.t, {this.moth = false});
   final double t;
+
+  /// Quem pegou: a Mariposa tem o próprio susto.
+  final bool moth;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -267,11 +302,20 @@ class ScarePainter extends CustomPainter {
             ? const Color(0xFF2A0000)
             : Colors.black,
     );
-    final h = size.height * (3.2 + 0.8 * (1 - t));
     final shake = Offset(
       (rng.nextDouble() - 0.5) * 30,
       (rng.nextDouble() - 0.5) * 30,
     );
+    if (moth) {
+      drawMoth(
+        canvas,
+        size.center(Offset.zero) + shake,
+        size.width * (0.9 + 0.3 * (1 - t)),
+        rng.nextDouble() * 2 - 1,
+      );
+      return;
+    }
+    final h = size.height * (3.2 + 0.8 * (1 - t));
     // Os pés bem abaixo da tela: só a cabeça e os braços aparecem.
     drawMannequin(
       canvas,

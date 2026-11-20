@@ -1,0 +1,34 @@
+/// A história, contada antes de cada noite. Original: o ateliê, o manequim e
+/// a mariposa são deste jogo.
+String storyFor(int night) => switch (night) {
+  1 =>
+    'O Ateliê Valente fechou depois de quarenta anos. No leilão, ninguém quis '
+        'o manequim do fundo da loja, o de madeira rachada. Eu paguei dez reais. '
+        'Deixei ele no canto do quarto, virado para a parede.',
+  2 =>
+    'De manhã ele estava virado para a cama. Achei na base dele uma etiqueta '
+        'de costura com o meu nome e as minhas medidas, escritas à mão. '
+        'Eu nunca entrei naquele ateliê.',
+  3 =>
+    'A filha do alfaiate respondeu o e-mail. Disse que o pai fazia roupas sob '
+        'medida para quem ia desaparecer, e que o manequim tomava as medidas '
+        'sozinho, de noite. Pediu para eu não olhar para ele no escuro.',
+  4 =>
+    'Abri o peito dele com uma chave de fenda. Dentro, entre a palha e o '
+        'feltro, havia casulos. Um deles estava aberto. Desde então, alguma '
+        'coisa bate as asas sempre que eu acendo a luz.',
+  5 =>
+    'Os casulos têm etiquetas também. Cada uma com um nome que eu pesquisei: '
+        'gente que sumiu de quartos trancados. A minha etiqueta está no último, '
+        'ainda fechado.',
+  6 =>
+    'Ele não quer me matar. Ele quer terminar a roupa. Falta só a medida do '
+        'pescoço, e ela se toma de perto.',
+  7 =>
+    'Esta noite eu queimo o casulo. Se eu chegar até de manhã, acabou. '
+        'Se você estiver lendo isto e o seu nome estiver numa etiqueta, não '
+        'compre manequins usados.',
+  _ =>
+    'Noite $night. Os casulos voltaram a crescer. A etiqueta tem uma medida '
+        'nova, cada vez mais exata.',
+};

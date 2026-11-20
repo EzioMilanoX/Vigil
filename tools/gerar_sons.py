@@ -100,6 +100,35 @@ def grito():
     return s
 
 
+def batida():
+    """Três batidas abafadas na parede (susto falso)."""
+    n = int(RATE * 1.1)
+    s = [0.0] * n
+    for t0 in (0.0, 0.32, 0.58):
+        lp = 0.0
+        for i in range(int(RATE * 0.25)):
+            j = int(t0 * RATE) + i
+            if j >= n:
+                break
+            t = i / RATE
+            lp += 0.05 * (random.uniform(-1, 1) - lp)
+            s[j] += math.exp(-t * 30) * (math.sin(2 * math.pi * 75 * t) + 3 * lp)
+    return s
+
+
+def zumbido():
+    """O zumbido da Mariposa, em loop: asas batendo rápido."""
+    n = int(RATE * 1.0)
+    s = []
+    for i in range(n):
+        t = i / RATE
+        asa = 0.55 + 0.45 * math.sin(2 * math.pi * 31 * t)
+        f = 165 + 8 * math.sin(2 * math.pi * 3 * t)
+        serra = 2 * ((f * t) % 1) - 1
+        s.append(asa * (0.6 * serra + 0.25 * random.uniform(-1, 1)))
+    return s
+
+
 if __name__ == "__main__":
     pasta = sys.argv[1] if len(sys.argv) > 1 else "assets/sons"
     for nome, gerar in [
@@ -109,6 +138,8 @@ if __name__ == "__main__":
         ("chiado", chiado),
         ("choque", choque),
         ("grito", grito),
+        ("batida", batida),
+        ("zumbido", zumbido),
     ]:
         salvar(pasta, nome, gerar())
     print("ok")

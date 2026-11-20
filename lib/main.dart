@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'data/save.dart';
 import 'ui/title_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Em pé, como uma lanterna, e em tela cheia.
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  runApp(const VigilApp());
+  final save = Save();
+  await save.load();
+  runApp(VigilApp(save: save));
 }
 
 class VigilApp extends StatelessWidget {
-  const VigilApp({super.key});
+  const VigilApp({super.key, required this.save});
+
+  final Save save;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +25,7 @@ class VigilApp extends StatelessWidget {
       title: 'Vigil',
       debugShowCheckedModeBanner: false,
       theme: vigilTheme,
-      home: const TitleScreen(),
+      home: TitleScreen(save: save),
     );
   }
 }

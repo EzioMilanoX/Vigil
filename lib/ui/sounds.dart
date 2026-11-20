@@ -2,25 +2,65 @@ import 'package:audioplayers/audioplayers.dart';
 
 import '../game/vigil_game.dart';
 
+/// Um som em loop (chiado, zumbido) cujo volume e lado mudam a cada quadro.
+class _Loop {
+  _Loop(this.asset);
+  final String asset;
+  AudioPlayer? _p;
+  double _vol = -1;
+  double _pan = 9;
+
+  Future<void> set(double volume, {double pan = 0}) async {
+    if ((volume - _vol).abs() < 0.04 && (pan - _pan).abs() < 0.08) return;
+    _vol = volume;
+    _pan = pan;
+    try {
+      if (_p == null) {
+        if (volume <= 0) return;
+        final p = _p = AudioPlayer();
+        await p.setReleaseMode(ReleaseMode.loop);
+        await p.setVolume(volume);
+        await p.setBalance(pan);
+        await p.play(AssetSource(asset));
+      } else {
+        await _p!.setVolume(volume);
+        await _p!.setBalance(pan);
+      }
+    } catch (_) {}
+  }
+
+  void dispose() {
+    _p?.dispose();
+    _p = null;
+  }
+}
+
 /// Os sons da noite, com o lado (pan) de onde vêm. Com fone, é a pista principal.
 class Sounds {
+  Sounds({this.volume = 1});
+
+  /// O volume geral (configurações).
+  final double volume;
   final _vivos = <AudioPlayer>{};
-  AudioPlayer? _chiado;
-  double _chiadoVol = -1;
+  final _chiado = _Loop('sons/chiado.wav');
+  final _zumbido = _Loop('sons/zumbido.wav');
 
   Future<void> cue(Cue c) {
-    final (asset, volume) = switch (c.kind) {
-      CueKind.arrive => ('sons/rangido.wav', 0.7),
-      CueKind.step => ('sons/passo.wav', 0.6),
-      CueKind.charge => ('sons/grito.wav', 0.45),
-      CueKind.hit => ('sons/choque.wav', 1.0),
-      CueKind.miss => ('sons/choque.wav', 0.35),
+    final (asset, vol, centered) = switch (c.kind) {
+      CueKind.arrive => ('sons/rangido.wav', 0.7, false),
+      CueKind.step => ('sons/passo.wav', 0.6, false),
+      CueKind.charge => ('sons/grito.wav', 0.45, false),
+      CueKind.feint => ('sons/rangido.wav', 0.5, false),
+      CueKind.hit => ('sons/choque.wav', 1.0, true),
+      CueKind.miss => ('sons/choque.wav', 0.35, true),
+      CueKind.knock => ('sons/batida.wav', 0.8, false),
+      CueKind.shadow => ('sons/passo.wav', 0.3, false),
+      CueKind.buzz => ('sons/zumbido.wav', c.near ? 0.9 : 0.5, false),
     };
-    final centered = c.kind == CueKind.hit || c.kind == CueKind.miss;
     return _play(
       asset,
       balance: centered ? 0 : c.pan,
-      volume: volume,
+      volume: vol,
       // Atrás de você soa mais grave, para distinguir de "na frente".
       rate: c.behind && !centered ? 0.85 : 1,
     );
@@ -32,21 +72,16 @@ class Sounds {
   Future<void> scream() => _play('sons/grito.wav', volume: 1, rate: 0.9);
 
   /// O chiado contínuo, no volume do quanto você olha para ele invisível.
-  Future<void> staticLevel(double level) async {
-    final v = (level * 0.7).clamp(0.0, 0.7);
-    if ((v - _chiadoVol).abs() < 0.04) return;
-    _chiadoVol = v;
-    try {
-      if (_chiado == null) {
-        if (v <= 0) return;
-        final p = _chiado = AudioPlayer();
-        await p.setReleaseMode(ReleaseMode.loop);
-        await p.setVolume(v);
-        await p.play(AssetSource('sons/chiado.wav'));
-      } else {
-        await _chiado!.setVolume(v);
-      }
-    } catch (_) {}
+  void staticLevel(double level) =>
+      _chiado.set((level * 0.7 * volume).clamp(0.0, 1.0));
+
+  /// O zumbido da Mariposa, do lado em que ela está.
+  void mothLevel(double level, double pan) =>
+      _zumbido.set((level * level * 0.8 * volume).clamp(0.0, 1.0), pan: pan);
+
+  void silence() {
+    staticLevel(0);
+    mothLevel(0, 0);
   }
 
   Future<void> _play(
@@ -55,12 +90,13 @@ class Sounds {
     double volume = 1,
     double rate = 1,
   }) async {
+    if (this.volume <= 0) return;
     final p = AudioPlayer();
     _vivos.add(p);
     p.onPlayerComplete.listen((_) => _soltar(p));
     try {
       await p.setReleaseMode(ReleaseMode.stop);
-      await p.setVolume(volume);
+      await p.setVolume((volume * this.volume).clamp(0.0, 1.0));
       await p.setBalance(balance);
       if (rate != 1) await p.setPlaybackRate(rate);
       await p.play(AssetSource(asset));
@@ -75,8 +111,8 @@ class Sounds {
   }
 
   void dispose() {
-    _chiado?.dispose();
-    _chiado = null;
+    _chiado.dispose();
+    _zumbido.dispose();
     for (final p in _vivos) {
       p.dispose();
     }

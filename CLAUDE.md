@@ -18,7 +18,15 @@ Terror de celular (Android; Windows só para testar). Idioma: PT-BR. Repositóri
 - `lib/ui/mannequin.dart` — o desenho do Manequim (claro na luz, silhueta e olhos no escuro, defeito de imagem).
 - `lib/ui/room_painter.dart` — escuro com o buraco do feixe, o Manequim (aceso só dentro do feixe), chiado, quarto desenhado quando não há câmera, e o susto.
 - `lib/ui/game_screen.dart` — câmera (`camera`, a lanterna real acompanha), giroscópio projetado na vertical (`sensors_plus`), botões segurar-lanterna e choque, sons (`lib/ui/sounds.dart`).
-- `lib/ui/title_screen.dart` — instruções, câmera liga/desliga, noite liberada (`shared_preferences`).
+- `lib/ui/title_screen.dart` — o menu (TitleScreen), NightsScreen, StoryScreen (texto em `lib/game/story.dart`) e SettingsScreen.
+- `lib/data/save.dart` — noite liberada, recordes por noite, treino feito e configurações, num JSON em `shared_preferences`.
+- `lib/game/tutorial.dart` — o treino: `TutorialCoach` monta cada situação com o jogo em `scripted` (ele não anda nem mata sozinho).
+- Noites: 2 = fintas (`feintChance`), 3 = corrida invisível (`cloakedCharge`), 4+ = a Mariposa (`moth`: avança com a luz acesa, recua no escuro). `Rules.novelty(n)` é o texto do que a noite traz.
+- Emulador para testar sem o celular: ver "Emulador" abaixo.
+
+## Emulador
+
+`powershell -File ../_templates/emulador.ps1 ligar`, depois `flutter build apk --release` (todas as ABIs), `instalar`, `abrir com.eziomilanox.vigil`, `print`, `arrastar` (gira o quarto), `segurar 170 2044 1500` (lanterna, tela 1080x2280). A câmera do emulador é uma cena virtual. Toques pelo adb chegam com ~1–2 s de atraso: o tempo do choque não dá para testar assim (está nos testes de `vigil_game_test.dart`).
 
 ## Release
 

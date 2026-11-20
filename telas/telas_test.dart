@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vigil/data/save.dart';
 import 'package:vigil/game/vigil_game.dart';
 import 'package:vigil/main.dart';
 import 'package:vigil/ui/game_screen.dart';
@@ -65,15 +66,19 @@ void main() {
     return g;
   }
 
-  Future<void> game(WidgetTester tester, VigilGame g, String file) async {
+  Future<void> game(
+    WidgetTester tester,
+    VigilGame g,
+    String file, {
+    int nightNo = 2,
+  }) async {
     await phone(
       tester,
       GameScreen(
+        save: Save(persist: false),
         debugGame: g,
-        night: 2,
-        useGyroscope: false,
-        useSound: false,
-        useCamera: false,
+        night: nightNo,
+        useSensors: false,
       ),
     );
     await expectLater(find.byType(GameScreen), matchesGoldenFile(file));
@@ -82,7 +87,13 @@ void main() {
   testWidgets('1 início', (tester) async {
     await phone(
       tester,
-      const TitleScreen(useGyroscope: false, useSound: false, useCamera: false),
+      TitleScreen(
+        save: Save(persist: false)
+          ..tutorialDone = true
+          ..unlocked = 3
+          ..totalRepels = 11,
+        useSensors: false,
+      ),
     );
     await tester.pump(const Duration(milliseconds: 100));
     await expectLater(
@@ -117,6 +128,41 @@ void main() {
       night(offset: 0, distance: 0.15, mode: Mode.charging, lantern: true),
       '5_correndo.png',
     );
+  });
+
+  testWidgets('7 a Mariposa', (tester) async {
+    final g = VigilGame(seed: 3, rules: Rules.forNight(4))
+      ..lanternHeld = true
+      ..heading = 0.4;
+    g.angle = wrapAngle(g.heading + 1.5);
+    g
+      ..mothDistance = 0.45
+      ..mothAngle = g.heading;
+    await game(tester, g, '7_mariposa.png', nightNo: 4);
+  });
+
+  testWidgets('8 história', (tester) async {
+    await phone(
+      tester,
+      StoryScreen(save: Save(persist: false), night: 4, useSensors: false),
+    );
+    await tester.tap(find.byType(StoryScreen));
+    await tester.pump();
+    await expectLater(find.byType(StoryScreen), matchesGoldenFile('8_historia.png'));
+  });
+
+  testWidgets('9 noites', (tester) async {
+    final save = Save(persist: false)..unlocked = 3;
+    save.recordOf(1)
+      ..wins = 3
+      ..deaths = 2
+      ..bestTime = 131;
+    save.recordOf(2)
+      ..wins = 1
+      ..deaths = 5
+      ..bestTime = 204;
+    await phone(tester, NightsScreen(save: save, useSensors: false));
+    await expectLater(find.byType(NightsScreen), matchesGoldenFile('9_noites.png'));
   });
 
   testWidgets('6 susto', (tester) async {

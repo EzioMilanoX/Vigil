@@ -14,13 +14,20 @@ Terror de celular jogado em pé, no seu quarto. A câmera mostra o quarto de ver
 - **Às vezes ele some.** Se a tela chiar, ele está ali: segure a lanterna em cima e ele aparece. Mas nem todo chiado é ele.
 - **Quando ele corre**, espere chegar perto e dê o **choque**. Cedo demais não pega, e o choque leva um tempo para recarregar.
 - **A lanterna gasta a pilha** enquanto você segura e recarrega apagada. A do celular acende junto.
-- Espante-o algumas vezes e ele desiste até amanhecer. Cada noite vencida libera a próxima, mais difícil.
+- Espante-o algumas vezes e ele desiste até amanhecer. Cada noite vencida libera a próxima, mais difícil: fintas na 2, corrida invisível na 3 e, na 4, **a Mariposa**, que só avança enquanto a lanterna está acesa.
+- **Menu** com treino jogável, noites e recordes, configurações (volume, vibração, câmera, giro, jogar sentado) e um trecho da história antes de cada noite.
 
-Versão atual: **0.1.0**, para testar ([o que mudou](CHANGELOG.md)).
+<p>
+  <img src="telas/9_noites.png" width="160" alt="Noites e recordes">
+  <img src="telas/8_historia.png" width="160" alt="A história antes da noite">
+  <img src="telas/7_mariposa.png" width="160" alt="A Mariposa">
+</p>
+
+Versão atual: **0.2.0**, para testar ([o que mudou](CHANGELOG.md)).
 
 ## Instalando
 
-Baixe o `Vigil-<versão>.apk` em [Releases](https://github.com/EzioMilanoX/Vigil/releases), abra no celular e permita "instalar apps desconhecidos". O jogo pede a câmera para mostrar o quarto. Dá para jogar sem ela, num quarto desenhado, desligando a opção na tela de início.
+Baixe o `Vigil-<versão>.apk` em [Releases](https://github.com/EzioMilanoX/Vigil/releases), abra no celular e permita "instalar apps desconhecidos". O jogo pede a câmera para mostrar o quarto. Dá para jogar sem ela, num quarto desenhado, desligando a câmera nas Configurações.
 
 Precisa de giroscópio, que quase todo celular tem. Com fone fica bem melhor.
 

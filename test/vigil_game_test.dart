@@ -159,4 +159,69 @@ void main() {
     expect(n4.batterySeconds, lessThan(n1.batterySeconds));
     expect(n1.repelsToWin, const Rules().repelsToWin);
   });
+
+  test('finta: ele corre, para no meio e volta a rodear', () {
+    final g = VigilGame(seed: 10, rules: const Rules(feintChance: 1));
+    untilCharge(g);
+    g.takeCues();
+    run(g, 1.2);
+    expect(g.mode, Mode.roaming);
+    expect(g.distance, greaterThan(g.rules.chargeAt));
+    expect(g.phase, Phase.playing);
+    expect(g.takeCues().map((c) => c.kind), contains(CueKind.feint));
+  });
+
+  test('da noite 3 em diante, ele pode correr invisível', () {
+    final g = VigilGame(seed: 11, rules: Rules.forNight(3))..cloaked = true;
+    g.startCharge();
+    expect(g.cloaked, isTrue);
+    final g1 = VigilGame(seed: 11)..cloaked = true;
+    g1.startCharge();
+    expect(g1.cloaked, isFalse, reason: 'noite 1: aparece para correr');
+  });
+
+  test('a Mariposa vem com a luz e vai embora no escuro', () {
+    final g = VigilGame(seed: 12, rules: const Rules(moth: true))
+      ..scripted = true
+      ..lanternHeld = true;
+    run(g, 4);
+    final perto = g.mothDistance;
+    expect(perto, lessThan(1));
+    g.lanternHeld = false;
+    run(g, 2);
+    expect(g.mothDistance, greaterThan(perto));
+  });
+
+  test('luz demais e a Mariposa pega você', () {
+    final g = VigilGame(
+      seed: 13,
+      rules: const Rules(moth: true, batterySeconds: 999),
+    )..lanternHeld = true;
+    for (var i = 0; i < 30 * 40 && g.phase == Phase.playing; i++) {
+      g.heading = g.angle; // e ainda espanta o manequim quando dá
+      if (g.mode == Mode.charging && g.distance <= g.rules.shockWindow) {
+        g.shock();
+      }
+      g.update(step);
+    }
+    expect(g.phase, Phase.lost);
+    expect(g.killer, Killer.moth);
+  });
+
+  test('no tutorial ele não anda sozinho e não mata', () {
+    final g = VigilGame(seed: 14)..scripted = true;
+    final (a, d) = (g.angle, g.distance);
+    run(g, 5);
+    expect((g.angle, g.distance), (a, d));
+    g.startCharge();
+    run(g, 5);
+    expect(g.phase, Phase.playing);
+  });
+
+  test('a noite conta o que traz de novo', () {
+    expect(Rules.novelty(1), isNull);
+    expect(Rules.novelty(4), contains('luz'));
+    expect(Rules.forNight(4).moth, isTrue);
+    expect(Rules.forNight(3).moth, isFalse);
+  });
 }
