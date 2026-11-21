@@ -1,10 +1,51 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui' show PointMode;
 
 import 'package:flutter/material.dart';
 
 import '../game/vigil_game.dart';
 import 'mannequin.dart';
+
+/// Um sorteador só para todos os quadros (criar um por quadro gera lixo).
+final _rng = Random();
+
+/// Pontos de ruído sorteados uma vez para o tamanho da tela; cada quadro usa
+/// um trecho diferente, deslocado, para o chiado não parecer parado. Assim
+/// o chiado não cria milhares de objetos a cada quadro.
+Float32List? _noise;
+Size? _noiseSize;
+const _noisePoints = 4000;
+
+Float32List _noiseFor(Size size) {
+  if (_noise != null && _noiseSize == size) return _noise!;
+  final r = Random(7);
+  final list = Float32List(_noisePoints * 2);
+  for (var i = 0; i < _noisePoints; i++) {
+    list[2 * i] = r.nextDouble() * size.width;
+    list[2 * i + 1] = r.nextDouble() * size.height;
+  }
+  _noiseSize = size;
+  return _noise = list;
+}
+
+void _noiseDots(Canvas canvas, Size size, int count, Paint paint) {
+  final all = _noiseFor(size);
+  final n = min(count, _noisePoints);
+  if (n <= 0) return;
+  final start = _rng.nextInt(_noisePoints - n + 1);
+  canvas.save();
+  canvas.translate(
+    (_rng.nextDouble() - 0.5) * 60,
+    (_rng.nextDouble() - 0.5) * 60,
+  );
+  canvas.drawRawPoints(
+    PointMode.points,
+    Float32List.sublistView(all, start * 2, (start + n) * 2),
+    paint,
+  );
+  canvas.restore();
+}
 
 /// Quanto do quarto cabe na tela, de ponta a ponta.
 const fieldOfView = 70 * pi / 180;
@@ -39,7 +80,7 @@ class RoomPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rng = Random();
+    final rng = _rng;
     final cx = size.width / 2;
     final pxPerRad = size.width / fieldOfView;
     final beamR = game.rules.beamHalfWidth * pxPerRad * 1.25;
@@ -252,32 +293,23 @@ class RoomPainter extends CustomPainter {
         bar,
       );
     }
-    final dots = [
-      for (var k = 0; k < (1500 * s).round(); k++)
-        Offset(rng.nextDouble() * size.width, rng.nextDouble() * size.height),
-    ];
-    canvas.drawPoints(
-      PointMode.points,
-      dots,
+    _noiseDots(
+      canvas,
+      size,
+      (1500 * s).round(),
       Paint()
         ..color = Color.fromRGBO(220, 220, 220, 0.5 * s)
         ..strokeWidth = 2.5,
     );
   }
 
+  static final _grainPaint = Paint()
+    ..color = const Color(0x1AFFFFFF)
+    ..strokeWidth = 1.5;
+
   /// Chuvisco leve, sempre.
   void _grain(Canvas canvas, Size size, Random rng) {
-    final dots = [
-      for (var k = 0; k < 500; k++)
-        Offset(rng.nextDouble() * size.width, rng.nextDouble() * size.height),
-    ];
-    canvas.drawPoints(
-      PointMode.points,
-      dots,
-      Paint()
-        ..color = const Color(0x1AFFFFFF)
-        ..strokeWidth = 1.5,
-    );
+    _noiseDots(canvas, size, 500, _grainPaint);
   }
 
   @override
@@ -294,7 +326,7 @@ class ScarePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rng = Random();
+    final rng = _rng;
     canvas.drawRect(
       Offset.zero & size,
       Paint()

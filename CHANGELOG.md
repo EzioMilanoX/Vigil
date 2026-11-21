@@ -1,5 +1,9 @@
 # Mudanças
 
+## 0.3.1 (2026-11-21)
+
+- **Desempenho:** o chiado não cria mais milhares de pontos a cada quadro (usa um conjunto sorteado uma vez, deslocado a cada quadro). Medido no S20 FE: pintura de 1,9 ms em média (p95 2,5 ms) e nenhum quadro lento em 300, com câmera e lanterna. Para medir em outro celular: `flutter build apk --release --dart-define=VIGIL_PERF=true` mostra o tempo de cada quadro na tela.
+
 ## 0.3.0 (2026-11-20)
 
 - **Som 3D (com fone):** passos, rangidos, o grito, as batidas e o zumbido vêm gravados em 8 direções, com a diferença de tempo e de volume entre os ouvidos e o som de trás mais abafado. Dá para ouvir se ele está na frente ou atrás, não só de que lado. Sem fone, desligue em Configurações.

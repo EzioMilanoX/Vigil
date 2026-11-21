@@ -47,6 +47,10 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
+/// Só numa versão de teste (--dart-define=VIGIL_PERF=true): tempo de cada
+/// quadro na tela, para medir no celular.
+const _perf = bool.fromEnvironment('VIGIL_PERF');
+
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late VigilGame _game;
@@ -70,6 +74,29 @@ class _GameScreenState extends State<GameScreen>
   double _flashPan = 0;
   double _shadow = -1;
 
+  // Medição (VIGIL_PERF): média e pior quadro, de pintura e de montagem
+  final _raster = <double>[];
+  final _build = <double>[];
+  var _perfText = '';
+
+  void _onTimings(List<FrameTiming> timings) {
+    for (final f in timings) {
+      _raster.add(f.rasterDuration.inMicroseconds / 1000);
+      _build.add(f.buildDuration.inMicroseconds / 1000);
+    }
+    while (_raster.length > 300) {
+      _raster.removeAt(0);
+      _build.removeAt(0);
+    }
+    double avg(List<double> v) => v.reduce((a, b) => a + b) / v.length;
+    double p95(List<double> v) => ([...v]..sort())[(v.length * 0.95).floor()];
+    final slow = _raster.where((r) => r > 16.7).length;
+    _perfText =
+        'pintura  média ${avg(_raster).toStringAsFixed(1)} ms  p95 ${p95(_raster).toStringAsFixed(1)} ms\n'
+        'montagem média ${avg(_build).toStringAsFixed(1)} ms  p95 ${p95(_build).toStringAsFixed(1)} ms\n'
+        'quadros lentos $slow/${_raster.length}';
+  }
+
   /// O susto quando algo pega você: segundos que ainda faltam na tela.
   double _scare = 0;
 
@@ -80,6 +107,7 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   void initState() {
+    if (_perf) SchedulerBinding.instance.addTimingsCallback(_onTimings);
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _newNight();
@@ -182,6 +210,7 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   void dispose() {
+    if (_perf) SchedulerBinding.instance.removeTimingsCallback(_onTimings);
     WidgetsBinding.instance.removeObserver(this);
     _gyro?.cancel();
     _accel?.cancel();
@@ -349,6 +378,19 @@ class _GameScreenState extends State<GameScreen>
                 ),
               ),
               Positioned(top: 0, left: 0, right: 0, child: _hud(g)),
+              if (_perf)
+                Positioned(
+                  left: 12,
+                  bottom: 140,
+                  child: Text(
+                    _perfText,
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
               if (coach != null) _coachBanner(coach),
               Positioned(
                 left: 0,
