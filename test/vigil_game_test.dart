@@ -228,7 +228,10 @@ void main() {
 
   /// Um jogo já na tática [t] (as outras regras como na noite 1).
   VigilGame comTatica(Tactic t, {int seed = 20}) {
-    final g = VigilGame(seed: seed, rules: Rules(tactics: [Tactic.roam, t]));
+    final g = VigilGame(
+      seed: seed,
+      rules: Rules(tactics: [Tactic.roam, t]),
+    );
     // Espanta a primeira (sempre rondar) e espera a próxima, que é [t].
     g.mode = Mode.gone;
     run(g, g.rules.goneSeconds + 0.1);
