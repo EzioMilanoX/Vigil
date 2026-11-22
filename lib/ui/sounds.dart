@@ -49,7 +49,14 @@ class Sounds {
   final bool binaural;
 
   /// Os sons que têm versão 3D em assets/sons/3d (8 direções).
-  static const _with3d = {'passo', 'rangido', 'grito', 'batida', 'zumbido'};
+  static const _with3d = {
+    'passo',
+    'rangido',
+    'grito',
+    'batida',
+    'zumbido',
+    'respiro',
+  };
 
   /// A direção mais próxima, em graus, entre as 8 gravadas.
   static int direction(double angle) {
@@ -72,6 +79,9 @@ class Sounds {
       CueKind.knock => ('sons/batida.wav', 0.8, false),
       CueKind.shadow => ('sons/passo.wav', 0.3, false),
       CueKind.buzz => ('sons/zumbido.wav', c.near ? 0.9 : 0.5, false),
+      CueKind.breath => ('sons/respiro.wav', 1.0, false),
+      CueKind.blackout => ('sons/apagao.wav', 0.9, true),
+      CueKind.face => ('sons/rosto.wav', 0.75, true),
     };
     final name = asset.substring(5, asset.length - 4);
     if (binaural && !centered && _with3d.contains(name)) {
@@ -90,7 +100,8 @@ class Sounds {
   Future<void> heartbeat(double loudness) =>
       _play('sons/coracao.wav', volume: loudness.clamp(0.1, 1.0));
 
-  Future<void> scream() => _play('sons/grito.wav', volume: 1, rate: 0.9);
+  /// O susto de quando ele pega (o grito em camadas, alto).
+  Future<void> scream() => _play('sons/susto.wav', volume: 1);
 
   /// O chiado contínuo, no volume do quanto você olha para ele invisível.
   void staticLevel(double level) =>
@@ -99,6 +110,15 @@ class Sounds {
   /// O zumbido da Mariposa, do lado em que ela está.
   void mothLevel(double level, double pan) =>
       _zumbido.set((level * level * 0.8 * volume).clamp(0.0, 1.0), pan: pan);
+
+  /// Corta tudo o que está tocando (o silêncio antes do susto).
+  void hush() {
+    silence();
+    for (final p in _vivos) {
+      p.dispose();
+    }
+    _vivos.clear();
+  }
 
   void silence() {
     staticLevel(0);

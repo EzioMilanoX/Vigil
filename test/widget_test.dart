@@ -72,7 +72,7 @@ void main() {
       tester,
       GameScreen(save: save, debugGame: g, useSensors: false),
     );
-    await frames(tester, 60);
+    await frames(tester, 90);
     expect(g.phase, Phase.lost);
     expect(save.recordOf(1).deaths, 1);
     expect(find.text('Ele tomou a sua medida.'), findsOneWidget);

@@ -100,6 +100,12 @@ class _GameScreenState extends State<GameScreen>
   /// O susto quando algo pega você: segundos que ainda faltam na tela.
   double _scare = 0;
 
+  /// Antes do susto: a luz morre e tudo fica em silêncio por um instante.
+  double _doom = 0;
+
+  /// O quarto treme com um som perto (0 a 1).
+  double _shake = 0;
+
   /// Conquistas ganhas nesta noite, para a tela do fim.
   var _newAchievements = <Achievement>[];
 
@@ -203,6 +209,8 @@ class _GameScreenState extends State<GameScreen>
     _coach = widget.tutorial ? TutorialCoach(_game) : null;
     _last = Duration.zero;
     _scare = 0;
+    _doom = 0;
+    _shake = 0;
     _paused = false;
     _recorded = false;
     _newAchievements = [];
@@ -233,6 +241,25 @@ class _GameScreenState extends State<GameScreen>
     if (dt <= 0 || dt > 0.25) return;
     _clock += dt;
     _scare = max(0, _scare - dt);
+    _shake = max(0, _shake - dt * 2.5);
+    if (_doom > 0) {
+      _doom -= dt;
+      if (_doom <= 0) {
+        _scare = scareSeconds;
+        _sounds?.scream();
+        if (_settings.vibration) {
+          HapticFeedback.vibrate();
+          Future.delayed(
+            const Duration(milliseconds: 180),
+            HapticFeedback.heavyImpact,
+          );
+          Future.delayed(
+            const Duration(milliseconds: 420),
+            HapticFeedback.vibrate,
+          );
+        }
+      }
+    }
     if (_paused) {
       setState(() {});
       return;
@@ -249,6 +276,12 @@ class _GameScreenState extends State<GameScreen>
       switch (cue.kind) {
         case CueKind.shadow:
           _shadow = 0;
+        case CueKind.face:
+          _shake = 0.7;
+        case CueKind.breath || CueKind.blackout:
+          _shake = 1;
+          _flash = 1;
+          _flashPan = cue.pan;
         case CueKind.miss || CueKind.knock:
           break;
         default:
@@ -270,12 +303,12 @@ class _GameScreenState extends State<GameScreen>
 
   void _ended() {
     final g = _game;
-    if (g.phase == Phase.lost) {
-      _scare = 1.1;
-      if (_settings.vibration) HapticFeedback.vibrate();
-      _sounds?.scream();
-    }
     _sounds?.silence();
+    if (g.phase == Phase.lost) {
+      // Um instante de escuro e silêncio, e então ele.
+      _sounds?.hush();
+      _doom = g.killer == Killer.moth ? 0.25 : 0.55;
+    }
     if (_recorded || widget.tutorial) return;
     _recorded = true;
     widget.save
@@ -366,14 +399,20 @@ class _GameScreenState extends State<GameScreen>
                   ),
                 ),
               Positioned.fill(
-                child: CustomPaint(
-                  painter: RoomPainter(
-                    g,
-                    flash: _flash,
-                    flashPan: _flashPan,
-                    hasCamera: cam != null,
-                    clock: _clock,
-                    shadow: _shadow,
+                child: Transform.translate(
+                  offset: Offset(
+                    sin(_clock * 93) * 12 * _shake,
+                    cos(_clock * 71) * 7 * _shake,
+                  ),
+                  child: CustomPaint(
+                    painter: RoomPainter(
+                      g,
+                      flash: _flash,
+                      flashPan: _flashPan,
+                      hasCamera: cam != null,
+                      clock: _clock,
+                      shadow: _shadow,
+                    ),
                   ),
                 ),
               ),
@@ -399,11 +438,13 @@ class _GameScreenState extends State<GameScreen>
                 child: SafeArea(child: _controls(g)),
               ),
               if (_paused) _pauseMenu(),
-              if (_scare > 0)
+              if (_doom > 0)
+                const Positioned.fill(child: ColoredBox(color: Colors.black))
+              else if (_scare > 0)
                 Positioned.fill(
                   child: CustomPaint(
                     painter: ScarePainter(
-                      _scare / 1.1,
+                      _scare / scareSeconds,
                       moth: g.killer == Killer.moth,
                     ),
                   ),

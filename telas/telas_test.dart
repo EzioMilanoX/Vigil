@@ -179,7 +179,7 @@ void main() {
 class _Scare extends CustomPainter {
   const _Scare();
   @override
-  void paint(Canvas canvas, Size size) => ScarePainter(0.6).paint(canvas, size);
+  void paint(Canvas canvas, Size size) => ScarePainter(0.75).paint(canvas, size);
   @override
   bool shouldRepaint(_Scare old) => false;
 }

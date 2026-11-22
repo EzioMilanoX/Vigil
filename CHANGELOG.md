@@ -1,5 +1,18 @@
 # Mudanças
 
+## 0.4.0 (2026-11-22)
+
+- **Ele não vem sempre do mesmo jeito.** Cada aparição sorteia uma tática, nunca a mesma duas vezes seguidas:
+  - **Estátua** (desde a noite 1): com a luz em cima, congela e muda de pose quando você não está vendo; no escuro, anda depressa. Segurar a luz gasta a pilha.
+  - **Emboscada** (noite 2): some sem barulho e reaparece atrás de você; só uma respiração avisa antes de ele correr.
+  - **Apagão** (noite 3): perto, a lanterna morre; ele corre invisível em volta e só os passos e o chiado o acham. O choque traz a luz de volta.
+- **Sustos de verdade:**
+  - quando ele pega, a luz morre e tudo fica em silêncio por meio segundo; então o rosto avança da escuridão e ocupa a tela, com a imagem rasgando, as cores se separando e um clarão;
+  - o rosto é desenhado de perto: porcelana rachada iluminada de baixo, um pedaço faltando, órbitas fundas com pupilas acesas e a boca rasgada;
+  - um grito novo em camadas (estouro, acorde que se esfrega subindo, grave que soca e um guincho por cima) e vibração em três tempos;
+  - com a luz acesa, o rosto às vezes pisca dentro do feixe, com um corte agudo (susto falso);
+  - o quarto treme com a respiração e com o apagão.
+
 ## 0.3.1 (2026-11-21)
 
 - **Desempenho:** o chiado não cria mais milhares de pontos a cada quadro (usa um conjunto sorteado uma vez, deslocado a cada quadro). Medido no S20 FE: pintura de 1,9 ms em média (p95 2,5 ms) e nenhum quadro lento em 300, com câmera e lanterna. Para medir em outro celular: `flutter build apk --release --dart-define=VIGIL_PERF=true` mostra o tempo de cada quadro na tela.

@@ -129,6 +129,82 @@ def zumbido():
     return s
 
 
+def _serra(f, t):
+    return 2 * ((f * t) % 1) - 1
+
+
+def respiro():
+    """Uma respiração lenta e rouca bem perto (emboscada): puxa e solta."""
+    n = int(RATE * 1.5)
+    s, lp, bp = [], 0.0, 0.0
+    for i in range(n):
+        t = i / RATE
+        if t < 0.65:
+            env = math.sin(math.pi * t / 1.3) ** 2
+            corte = 0.08
+        else:
+            u = (t - 0.65) / 0.85
+            env = max(0.0, 1 - u) ** 1.5 * 1.2
+            corte = 0.05
+        ruido = random.uniform(-1, 1)
+        lp += corte * (ruido - lp)
+        bp += 0.3 * (lp - bp)
+        rouco = 0.25 * math.sin(2 * math.pi * 62 * t) * (0.5 + 0.5 * math.sin(2 * math.pi * 23 * t))
+        s.append(env * (2.5 * (lp - bp) + rouco * (t > 0.65)))
+    return s
+
+
+def apagao():
+    """A lanterna morrendo: um estalo elétrico e o zumbido que cai e some."""
+    n = int(RATE * 0.9)
+    s = []
+    for i in range(n):
+        t = i / RATE
+        estalo = random.uniform(-1, 1) * math.exp(-t * 60)
+        f = 120 * (1 - 0.6 * min(1, t / 0.7))
+        zumbido = 0.5 * _serra(f, t) * max(0, 1 - t / 0.75)
+        falha = 1 if random.random() > 0.15 * t * 10 else 0
+        s.append(estalo + zumbido * falha)
+    return s
+
+
+def rosto():
+    """O rosto que pisca no feixe: um corte agudo e dissonante, curtíssimo."""
+    n = int(RATE * 0.55)
+    s = []
+    for i in range(n):
+        t = i / RATE
+        env = min(1, t * 400) * math.exp(-t * 7)
+        v = (_serra(1400, t) + _serra(1487, t) + 0.6 * _serra(1980, t)) / 2.6
+        baque = 1.2 * math.sin(2 * math.pi * 55 * t) * math.exp(-t * 18)
+        s.append(env * (v + 0.35 * random.uniform(-1, 1)) + baque)
+    return s
+
+
+def susto():
+    """O susto de quando ele pega: estouro, acorde que se esfrega subindo,
+    grave que soca o peito e um guincho metálico por cima, tudo saturado."""
+    n = int(RATE * 1.8)
+    s = []
+    fases = [0.0] * 4
+    base = [196, 207.6, 293.7, 415.3]
+    for i in range(n):
+        t = i / RATE
+        subida = 1 + 0.5 * min(1, t / 0.9)
+        acorde = 0.0
+        for k, f in enumerate(base):
+            fases[k] += f * subida * (1 + 0.012 * math.sin(2 * math.pi * (6 + k) * t)) / RATE
+            acorde += 2 * (fases[k] % 1) - 1
+        acorde /= 4
+        guincho = math.sin(2 * math.pi * (1700 + 260 * math.sin(2 * math.pi * 9 * t)) * t)
+        soco = math.sin(2 * math.pi * 45 * t) * math.exp(-t * 5)
+        estouro = random.uniform(-1, 1) * math.exp(-t * 35)
+        env = min(1, t * 300) * (1 if t < 1.35 else max(0, (1.8 - t) / 0.45))
+        v = env * (0.9 * acorde + 0.45 * guincho + 1.1 * soco + 0.4 * random.uniform(-1, 1)) + estouro
+        s.append(max(-0.7, min(0.7, v * 2.2)))
+    return s
+
+
 RATE_3D = 22050
 DIRECOES = range(0, 360, 45)
 
@@ -192,6 +268,10 @@ if __name__ == "__main__":
         ("grito", grito),
         ("batida", batida),
         ("zumbido", zumbido),
+        ("respiro", respiro),
+        ("apagao", apagao),
+        ("rosto", rosto),
+        ("susto", susto),
     ]:
         salvar(pasta, nome, gerar())
     # As versões em 3D (fone): uma por direção, de 45 em 45 graus.
@@ -205,6 +285,7 @@ if __name__ == "__main__":
         ("grito", grito),
         ("batida", batida),
         ("zumbido", zumbido),
+        ("respiro", respiro),
     ]:
         mono = gerar()
         for g in DIRECOES:

@@ -219,9 +219,99 @@ void main() {
   });
 
   test('a noite conta o que traz de novo', () {
-    expect(Rules.novelty(1), isNull);
+    expect(Rules.novelty(1), contains('congela'));
+    expect(Rules.novelty(5), isNull);
     expect(Rules.novelty(4), contains('luz'));
     expect(Rules.forNight(4).moth, isTrue);
     expect(Rules.forNight(3).moth, isFalse);
+  });
+
+  /// Um jogo já na tática [t] (as outras regras como na noite 1).
+  VigilGame comTatica(Tactic t, {int seed = 20}) {
+    final g = VigilGame(seed: seed, rules: Rules(tactics: [Tactic.roam, t]));
+    // Espanta a primeira (sempre rondar) e espera a próxima, que é [t].
+    g.mode = Mode.gone;
+    run(g, g.rules.goneSeconds + 0.1);
+    expect(g.tactic, t);
+    return g;
+  }
+
+  test('a tática nunca se repete duas vezes seguidas', () {
+    final g = VigilGame(seed: 21, rules: Rules.forNight(3));
+    expect(g.tactic, Tactic.roam, reason: 'a primeira é sempre rondar');
+    var antes = g.tactic;
+    final vistas = <Tactic>{antes};
+    for (var i = 0; i < 12; i++) {
+      g.mode = Mode.gone;
+      run(g, g.rules.goneSeconds + 0.1);
+      expect(g.tactic, isNot(antes));
+      antes = g.tactic;
+      vistas.add(antes);
+    }
+    expect(vistas, Tactic.values.toSet());
+  });
+
+  test('estátua: congela na luz e anda no escuro', () {
+    final g = comTatica(Tactic.statue)..lanternHeld = true;
+    run(g, 2, follow: true);
+    expect(g.frozen, isTrue);
+    final parado = g.distance;
+    run(g, 2, follow: true);
+    expect(g.distance, parado, reason: 'na luz não se mexe');
+    final pose = g.pose;
+    g.lanternHeld = false;
+    run(g, 1, follow: true);
+    expect(g.distance, lessThan(parado), reason: 'no escuro anda');
+    expect(g.pose, pose + 1, reason: 'mudou de pose sem ninguém ver');
+  });
+
+  test('emboscada: some calado, respira atrás de você e corre', () {
+    final g = comTatica(Tactic.ambush);
+    g.takeCues();
+    expect(g.lurking, isTrue);
+    expect(g.visible, isFalse);
+    expect(g.staticLevel, lessThan(0.7), reason: 'sem chiado de verdade');
+    for (var i = 0; i < 30 * 10 && g.lurking; i++) {
+      g.update(step);
+    }
+    final cues = g.takeCues();
+    final breath = cues.firstWhere((c) => c.kind == CueKind.breath);
+    expect(breath.behind, isTrue);
+    expect(cues.map((c) => c.kind), isNot(contains(CueKind.arrive)));
+    expect(g.mode, Mode.roaming, reason: 'a respiração vem antes');
+    run(g, g.rules.ambushWarnSeconds + 0.05);
+    expect(g.mode, Mode.charging);
+  });
+
+  test('apagão: perto, a luz morre; o choque a traz de volta', () {
+    final g = comTatica(Tactic.blackout)..lanternHeld = true;
+    for (var i = 0; i < 30 * 60 && !g.blackout; i++) {
+      g.update(step);
+    }
+    expect(g.blackout, isTrue);
+    expect(g.lit, isFalse);
+    expect(g.takeCues().map((c) => c.kind), contains(CueKind.blackout));
+    untilCharge(g);
+    for (var i = 0; i < 300 && g.distance > g.rules.shockWindow * 0.9; i++) {
+      g.heading = g.angle;
+      g.update(step);
+    }
+    expect(g.shock(), isTrue);
+    expect(g.blackout, isFalse);
+    expect(g.lit, isTrue);
+  });
+
+  test('o rosto só pisca com a luz acesa', () {
+    final g = VigilGame(seed: 22, rules: const Rules(faceFlashPerSecond: 5));
+    run(g, 2);
+    expect(g.faceFlash, 0, reason: 'apagada, nada');
+    g.lanternHeld = true;
+    var viu = false;
+    for (var i = 0; i < 60 && !viu; i++) {
+      g.heading = g.angle + pi; // olhando para longe dele
+      g.update(step);
+      viu = g.faceFlash > 0;
+    }
+    expect(viu, isTrue);
   });
 }

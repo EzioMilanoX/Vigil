@@ -24,6 +24,8 @@ Terror de celular (Android; Windows só para testar). Idioma: PT-BR. Repositóri
 - Som 3D: `tools/gerar_sons.py` grava `assets/sons/3d/<som>_<graus>.wav` (8 direções, binaural aproximado: atraso e volume entre ouvidos, sombra da cabeça, trás abafado); `Sounds.direction(angle)` escolhe a mais próxima. `Cue.angle` é o ângulo relativo ao olhar.
 - Conquistas: `lib/game/achievements.dart` (`earnedBy(NightResult)`); o jogo conta `lanternTime`, `misses`, `perfectHits`; `Save.finish` guarda recorde e conquistas. Diário: `JournalScreen` com `storyFor` e `foundAfter` (`lib/game/story.dart`).
 - Noites: 2 = fintas (`feintChance`), 3 = corrida invisível (`cloakedCharge`), 4+ = a Mariposa (`moth`: avança com a luz acesa, recua no escuro). `Rules.novelty(n)` é o texto do que a noite traz.
+- Táticas (`Tactic`): cada `_arrive` sorteia uma de `Rules.tactics`, nunca a mesma seguida, e a primeira da noite é `roam`. `statue` (congela com `lit && inBeam`, `pose` muda quando a luz sai), `ambush` (`lurking`: invisível, sem chiado nem `arrive`; depois `CueKind.breath` atrás, `ambushWarnSeconds`, e corrida mais lenta por `ambushChargeFactor`), `blackout` (em `blackoutAt` liga `blackout`, que apaga `lit`; passos a cada 0,55 s; choque com mira 30% mais larga). Noite 1: roam+statue; 2: +ambush; 3: +blackout.
+- Sustos: `faceFlash` (o rosto pisca no feixe, `faceFlashPerSecond`, só com a luz acesa); ao perder, `_doom` (escuro e `Sounds.hush()` por 0,55 s) e então `ScarePainter` (`scareSeconds`) com `drawScareFace` de `mannequin.dart`. Sons novos em `gerar_sons.py`: `respiro` (com 3D), `apagao`, `rosto`, `susto`.
 - Emulador para testar sem o celular: ver "Emulador" abaixo.
 
 ## Emulador

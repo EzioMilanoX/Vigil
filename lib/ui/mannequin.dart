@@ -311,3 +311,223 @@ void drawMoth(Canvas canvas, Offset c, double size, double flap) {
     );
   }
 }
+
+/// O rosto dele de perto, para o susto: porcelana rachada iluminada de
+/// baixo, um pedaço do rosto faltando, órbitas fundas com duas pupilas
+/// acesas e a boca rasgada de orelha a orelha. [c] é o centro do rosto, [w]
+/// a largura, [open] (0 a 1) o quanto a boca abre.
+void drawScareFace(
+  Canvas canvas,
+  Offset c,
+  double w,
+  double open, {
+  bool tint = false,
+}) {
+  final rx = w / 2, ry = w * 0.66;
+  final face = Rect.fromCenter(center: c, width: rx * 2, height: ry * 2);
+  Offset at(double fx, double fy) => Offset(c.dx + fx * rx, c.dy + fy * ry);
+  Path poly(List<(double, double)> pts) {
+    final p = Path()
+      ..moveTo(at(pts[0].$1, pts[0].$2).dx, at(pts[0].$1, pts[0].$2).dy);
+    for (final (x, y) in pts.skip(1)) {
+      final o = at(x, y);
+      p.lineTo(o.dx, o.dy);
+    }
+    return p..close();
+  }
+
+  // Porcelana iluminada de baixo (luz de lanterna no queixo).
+  canvas.drawOval(
+    face,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.15, 0.55),
+        radius: 1.05,
+        colors: tint
+            ? const [Color(0xFFE8C9B8), Color(0xFF9C6E5E), Color(0xFF2A100C)]
+            : const [Color(0xFFE9E1D0), Color(0xFF9C9382), Color(0xFF1E1A16)],
+        stops: const [0, 0.55, 1],
+      ).createShader(face),
+  );
+
+  // Fuligem escorrendo dos olhos.
+  final soot = Paint()
+    ..shader =
+        const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xAA0B0806), Color(0x000B0806)],
+        ).createShader(
+          Rect.fromLTRB(
+            face.left,
+            c.dy - ry * 0.2,
+            face.right,
+            c.dy + ry * 0.5,
+          ),
+        );
+  for (final (x, len, wd) in const [
+    (-0.42, 0.55, 0.05),
+    (-0.3, 0.38, 0.03),
+    (0.36, 0.62, 0.06),
+    (0.47, 0.3, 0.025),
+  ]) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(at(x, 0).dx, at(0, -0.12).dy, wd * rx, len * ry),
+        Radius.circular(wd * rx),
+      ),
+      soot,
+    );
+  }
+
+  // Órbitas: sombra funda em volta, buraco preto, pupila acesa.
+  for (final (x, y, sw, sh) in const [
+    (-0.38, -0.16, 0.3, 0.17),
+    (0.37, -0.13, 0.26, 0.15),
+  ]) {
+    final eye = Offset(at(x, y).dx, at(x, y).dy);
+    final shadowR = Rect.fromCenter(
+      center: eye,
+      width: sw * rx * 3.2,
+      height: sh * ry * 3.4,
+    );
+    canvas.drawOval(
+      shadowR,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xEE050302), Color(0x00050302)],
+        ).createShader(shadowR),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: eye, width: sw * rx * 2, height: sh * ry * 2),
+      Paint()..color = const Color(0xFF020101),
+    );
+    final glow = Rect.fromCircle(center: eye, radius: rx * 0.07);
+    canvas.drawCircle(
+      eye,
+      rx * 0.07,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xCCFF3B2A), Color(0x00FF3B2A)],
+        ).createShader(glow),
+    );
+    canvas.drawCircle(
+      eye,
+      rx * 0.018,
+      Paint()..color = const Color(0xFFFFF4E0),
+    );
+  }
+
+  // O pedaço que falta: buraco escuro com a borda lascada.
+  final chunk = poly(const [
+    (0.18, -0.92),
+    (0.4, -0.86),
+    (0.52, -0.66),
+    (0.44, -0.55),
+    (0.5, -0.43),
+    (0.33, -0.47),
+    (0.26, -0.62),
+    (0.12, -0.7),
+  ]);
+  canvas.drawPath(chunk, Paint()..color = const Color(0xFF070403));
+  canvas.drawPath(
+    chunk,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = rx * 0.025
+      ..color = const Color(0xFF5A4A3C),
+  );
+
+  // Rachaduras.
+  final crack = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..color = const Color(0xFF241A12);
+  for (final (pts, wd) in const [
+    (
+      [(0.3, -0.5), (0.22, -0.32), (0.3, -0.18), (0.18, 0.02), (0.24, 0.2)],
+      0.022,
+    ),
+    ([(-0.05, -0.98), (-0.12, -0.7), (-0.02, -0.52), (-0.16, -0.3)], 0.016),
+    ([(-0.38, -0.02), (-0.5, 0.18), (-0.44, 0.3), (-0.62, 0.52)], 0.014),
+    ([(0.18, 0.02), (0.42, 0.1), (0.55, 0.06)], 0.01),
+    ([(-0.16, -0.3), (-0.3, -0.38), (-0.42, -0.34)], 0.01),
+  ]) {
+    final path = Path();
+    for (final (i, (x, y)) in pts.indexed) {
+      final o = at(x, y);
+      i == 0 ? path.moveTo(o.dx, o.dy) : path.lineTo(o.dx, o.dy);
+    }
+    canvas.drawPath(path, crack..strokeWidth = wd * rx);
+  }
+
+  // A boca rasgada: abre para baixo, com lascas de porcelana como dentes.
+  final o = open.clamp(0.0, 1.0);
+  final top = <(double, double)>[
+    (-0.62, 0.36),
+    (-0.45, 0.4),
+    (-0.3, 0.36),
+    (-0.12, 0.41),
+    (0.05, 0.37),
+    (0.22, 0.42),
+    (0.4, 0.37),
+    (0.6, 0.31),
+  ];
+  final bottom = [
+    for (final (x, y) in top.reversed)
+      (
+        x * (1 - 0.08 * o),
+        y + (0.06 + 0.42 * o) * (1 - (x.abs() / 0.62) * (x.abs() / 0.62)),
+      ),
+  ];
+  final mouth = poly([...top, ...bottom]);
+  canvas.drawPath(mouth, Paint()..color = const Color(0xFF030101));
+  canvas.save();
+  canvas.clipPath(mouth);
+  final tooth = Paint()..color = const Color(0xFFD9D0BE);
+  for (var i = 0; i < top.length - 1; i++) {
+    final (x0, y0) = top[i];
+    final (x1, y1) = top[i + 1];
+    final mx = (x0 + x1) / 2;
+    canvas.drawPath(
+      poly([
+        (x0, y0 - 0.02),
+        (x1, y1 - 0.02),
+        (mx + 0.01, (y0 + y1) / 2 + 0.07 + 0.04 * (i % 2)),
+      ]),
+      tooth,
+    );
+  }
+  for (var i = 0; i < bottom.length - 1; i += 2) {
+    final (x0, y0) = bottom[i];
+    final (x1, y1) = bottom[i + 1];
+    canvas.drawPath(
+      poly([
+        (x0, y0 + 0.02),
+        (x1, y1 + 0.02),
+        ((x0 + x1) / 2, (y0 + y1) / 2 - 0.06),
+      ]),
+      tooth,
+    );
+  }
+  canvas.restore();
+  canvas.drawPath(
+    mouth,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = rx * 0.014
+      ..color = const Color(0xFF3A2C20),
+  );
+
+  // Bordas no escuro: só o meio do rosto recebe a luz.
+  canvas.drawOval(
+    face.inflate(rx * 0.02),
+    Paint()
+      ..shader = const RadialGradient(
+        radius: 0.72,
+        colors: [Color(0x00000000), Color(0x00000000), Color(0xCC000000)],
+        stops: [0, 0.72, 1],
+      ).createShader(face),
+  );
+}

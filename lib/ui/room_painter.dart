@@ -93,7 +93,13 @@ class RoomPainter extends CustomPainter {
     canvas.saveLayer(Offset.zero & size, Paint());
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = Color.fromRGBO(0, 0, 0, hasCamera ? 0.88 : 0.75),
+      Paint()
+        ..color = Color.fromRGBO(
+          0,
+          0,
+          0,
+          game.blackout ? 0.97 : (hasCamera ? 0.88 : 0.75),
+        ),
     );
     if (lit) {
       canvas.drawCircle(
@@ -120,6 +126,8 @@ class RoomPainter extends CustomPainter {
     }
 
     _mannequin(canvas, size, pxPerRad, beamC, beamR, rng);
+    _eyesInTheDark(canvas, size, pxPerRad, rng);
+    _faceInBeam(canvas, beamC, beamR, rng);
     _moth(canvas, size, pxPerRad);
     _passingShadow(canvas, size);
     _static(canvas, size, rng);
@@ -209,14 +217,23 @@ class RoomPainter extends CustomPainter {
     final h = size.height * (0.28 + 0.95 * near * near + 0.25 * near);
     final charging = g.mode == Mode.charging;
     final shake = charging ? (rng.nextDouble() - 0.5) * 14 : 0.0;
-    final bob = charging ? 0.0 : sin(clock * 5) * 4;
+    final statue = g.tactic == Tactic.statue && !charging;
+    final bob = charging || statue ? 0.0 : sin(clock * 5) * 4;
     // A cabeça sobe na tela conforme ele chega: de perto, o rosto domina.
     final headY = size.height * (0.42 - 0.17 * near);
     final feet = Offset(x + shake, headY + 0.92 * h + bob);
 
     MannequinStyle pose(MannequinStyle base) => base.copyWith(
-      armsUp: charging ? 1 : 0,
-      headTilt: charging ? 0 : sin(clock * 0.7) * 0.25,
+      armsUp: charging
+          ? 1
+          : statue
+          ? ((g.pose * 37) % 10) / 10 * (0.3 + 0.7 * near)
+          : 0,
+      headTilt: charging
+          ? 0
+          : statue
+          ? (((g.pose * 53) % 7) - 3) * 0.16
+          : sin(clock * 0.7) * 0.25,
       glitch: g.revealed ? 0.6 : (charging ? 0.1 : 0),
     );
     // As duas passadas usam o mesmo sorteio, para o defeito coincidir.
@@ -245,6 +262,37 @@ class RoomPainter extends CustomPainter {
       );
       canvas.restore();
     }
+  }
+
+  /// No apagão: de vez em quando, dois olhos acendem onde ele está.
+  void _eyesInTheDark(Canvas canvas, Size size, double pxPerRad, Random rng) {
+    final g = game;
+    if (!g.blackout || !g.present || g.distance > 0.6) return;
+    if (rng.nextDouble() > 0.05) return;
+    final x = size.width / 2 + g.offset * pxPerRad;
+    if ((x - size.width / 2).abs() > size.width * 0.6) return;
+    final near = 1 - g.distance;
+    final gap = size.width * (0.02 + 0.09 * near);
+    final y = size.height * (0.42 - 0.17 * near) + gap * 0.3;
+    final eye = Paint()..color = const Color(0xFFF0E6D2);
+    canvas.drawCircle(Offset(x - gap, y), 1.5 + 3 * near, eye);
+    canvas.drawCircle(Offset(x + gap, y), 1.5 + 3 * near, eye);
+  }
+
+  /// Susto falso: o rosto dele, de perto, pisca dentro do feixe.
+  void _faceInBeam(Canvas canvas, Offset beamC, double beamR, Random rng) {
+    if (game.faceFlash <= 0 || !game.lit) return;
+    canvas.save();
+    canvas.clipPath(
+      Path()..addOval(Rect.fromCircle(center: beamC, radius: beamR * 1.05)),
+    );
+    drawScareFace(
+      canvas,
+      beamC + Offset((rng.nextDouble() - 0.5) * 16, beamR * 0.25),
+      beamR * 2.1,
+      0.55,
+    );
+    canvas.restore();
   }
 
   void _moth(Canvas canvas, Size size, double pxPerRad) {
@@ -316,7 +364,11 @@ class RoomPainter extends CustomPainter {
   bool shouldRepaint(RoomPainter old) => true;
 }
 
-/// O susto: o rosto dele ocupa a tela. [t] vai de 1 a 0.
+/// Quanto dura o susto na tela, em segundos.
+const scareSeconds = 1.4;
+
+/// O susto: o rosto dele avança da escuridão e ocupa a tela, com a imagem
+/// rasgando, as cores se separando e um clarão. [t] vai de 1 a 0.
 class ScarePainter extends CustomPainter {
   ScarePainter(this.t, {this.moth = false});
   final double t;
@@ -324,38 +376,108 @@ class ScarePainter extends CustomPainter {
   /// Quem pegou: a Mariposa tem o próprio susto.
   final bool moth;
 
+  static final _black = Paint()..color = Colors.black;
+  static final _grain = Paint()
+    ..color = const Color(0x40FFFFFF)
+    ..strokeWidth = 2;
+
   @override
   void paint(Canvas canvas, Size size) {
     final rng = _rng;
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..color = rng.nextDouble() < 0.3
-            ? const Color(0xFF2A0000)
-            : Colors.black,
-    );
-    final shake = Offset(
-      (rng.nextDouble() - 0.5) * 30,
-      (rng.nextDouble() - 0.5) * 30,
-    );
+    final full = Offset.zero & size;
+    final e = (1 - t) * scareSeconds;
     if (moth) {
+      canvas.drawRect(
+        full,
+        Paint()
+          ..color = rng.nextDouble() < 0.3
+              ? const Color(0xFF2A0000)
+              : Colors.black,
+      );
       drawMoth(
         canvas,
-        size.center(Offset.zero) + shake,
+        size.center(Offset.zero) +
+            Offset(
+              (rng.nextDouble() - 0.5) * 30,
+              (rng.nextDouble() - 0.5) * 30,
+            ),
         size.width * (0.9 + 0.3 * (1 - t)),
         rng.nextDouble() * 2 - 1,
       );
       return;
     }
-    final h = size.height * (3.2 + 0.8 * (1 - t));
-    // Os pés bem abaixo da tela: só a cabeça e os braços aparecem.
-    drawMannequin(
-      canvas,
-      Offset(size.width / 2, size.height * 0.45 + h * 0.92) + shake,
-      h,
-      MannequinStyle.lit.copyWith(armsUp: 1, glitch: 0.4),
-      rng: rng,
+
+    // Um clarão logo depois do bote; depois, quadros pretos e avermelhados.
+    final white = e > 0.13 && e < 0.17;
+    canvas.drawRect(
+      full,
+      Paint()
+        ..color = white
+            ? const Color(0xFFF4EFE6)
+            : rng.nextDouble() < 0.2
+            ? const Color(0xFF300000)
+            : Colors.black,
     );
+    if (white) return;
+    if (e > 0.55 && rng.nextDouble() < 0.08) return;
+
+    // O bote: de longe até em cima de você em 0,13 s.
+    final lunge = Curves.easeOutCubic.transform((e / 0.13).clamp(0.0, 1.0));
+    final breathe = e > 0.13 ? 0.035 * sin(e * 47) : 0.0;
+    final w = size.width * 1.2 * (0.28 + 1.0 * lunge + breathe);
+    final decay = max(0.25, 1 - e / scareSeconds);
+    final c =
+        Offset(size.width / 2, size.height * 0.46) +
+        Offset(
+          (rng.nextDouble() - 0.5) * 44 * decay,
+          (rng.nextDouble() - 0.5) * 44 * decay,
+        );
+    final open = (0.2 + e / 0.4).clamp(0.0, 1.0);
+
+    if (e < 0.13) {
+      // Rastro do bote.
+      for (var k = 3; k >= 1; k--) {
+        canvas.saveLayer(full, Paint()..color = const Color(0x40000000));
+        drawScareFace(canvas, c, w * (1 - 0.14 * k), open);
+        canvas.restore();
+      }
+    }
+
+    // As cores se separando nas bordas.
+    final split = size.width * (0.01 + 0.035 * rng.nextDouble()) * decay;
+    for (final (color, dx) in [
+      (const Color(0xFFFF2A2A), split),
+      (const Color(0xFF2AFFFF), -split),
+    ]) {
+      canvas.saveLayer(
+        full,
+        Paint()
+          ..colorFilter = ColorFilter.mode(color, BlendMode.modulate)
+          ..blendMode = BlendMode.screen,
+      );
+      drawScareFace(canvas, c + Offset(dx, 0), w, open);
+      canvas.restore();
+    }
+    drawScareFace(canvas, c, w, open, tint: rng.nextDouble() < 0.25);
+
+    // A imagem rasgando: faixas deslocadas para o lado.
+    for (var k = 0; k < 4; k++) {
+      if (rng.nextDouble() > 0.55) continue;
+      final y = rng.nextDouble() * size.height;
+      canvas.save();
+      canvas.clipRect(
+        Rect.fromLTWH(0, y, size.width, 6 + rng.nextDouble() * 70),
+      );
+      canvas.drawRect(full, _black);
+      drawScareFace(
+        canvas,
+        c + Offset((rng.nextDouble() - 0.5) * 120 * decay, 0),
+        w,
+        open,
+      );
+      canvas.restore();
+    }
+    _noiseDots(canvas, size, 900, _grain);
   }
 
   @override
