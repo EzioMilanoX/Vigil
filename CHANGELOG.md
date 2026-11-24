@@ -1,5 +1,22 @@
 # Mudanças
 
+## 0.5.0 (2026-11-24)
+
+- **Diretor do medo.** Ele aprende como você joga ao longo da noite (e lembra se você tentar de novo):
+  - repara para onde você mais olha e passa a chegar mais pelo lado do quarto que você esquece (preferido, nunca garantido);
+  - a tática que te pegou ou quase pegou volta mais vezes; a que você espanta fácil, menos. Quem vive de lanterna acesa vê mais apagão; quem economiza luz, mais estátua; quem demora a achar o chiado, mais sumiço;
+  - a tensão sobe e desce: depois de um susto forte (o choque, a respiração, o apagão, o rosto), um respiro curto sem sustos falsos; quando nada acontece há um tempo, eles voltam mais. Depois de um espanto suado, ele demora um pouco mais a voltar;
+  - é justo: nunca a mesma tática duas vezes seguidas, a primeira é sempre rondar, toda tática da noite continua possível e nada muda na velocidade dele nem na janela do choque;
+  - dá para desligar em Configurações (Medo → Diretor do medo); desligado, é tudo sorteio, como antes.
+- **Recentralizar:** a bússola discreta no canto de cima faz da frente de agora a frente do quarto, para quando o giroscópio derivar. Ele, a Mariposa e o chiado continuam onde estavam em relação a você.
+- **Noite extra: A canção** (protótipo do conceito SEN-06 L.U.L.L.A.B.Y.), liberada depois de vencer a noite 4, no fim de "Noites e recordes":
+  - uma caixinha de música velha toca uma cantiga lenta (original, sintetizada); o Manequim só dá um passo na batida e, entre as batidas, fica parado;
+  - quando ele corre, o choque só pega dentro de ±80 ms de uma batida e mirando nele; fora do tempo é erro (aparece "fora do tempo" na tela e a contagem no fim da noite). Na batida em que ele chega em você, ainda dá para acertar dentro da janela;
+  - para o ritmo não virar previsão, sumir, o chiado, a finta da corrida e passos falsos acontecem fora do tempo;
+  - quanto mais perto ele está, mais rápida e mais desafinada a música fica;
+  - em Configurações → Acessibilidade: um pulso discreto na borda da tela no tempo da música (desligado por padrão) e o atraso do som, para fone Bluetooth;
+  - para trocar a música: `tools/gerar_batidas.py` acha as batidas de qualquer áudio (librosa ou, sem ele, um detector em numpy) e grava o JSON que o jogo lê.
+
 ## 0.4.0 (2026-11-22)
 
 - **Ele não vem sempre do mesmo jeito.** Cada aparição sorteia uma tática, nunca a mesma duas vezes seguidas:

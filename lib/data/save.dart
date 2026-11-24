@@ -21,6 +21,16 @@ class Settings {
   /// Som 3D para fone (frente e trás, não só esquerda e direita).
   bool sound3d = true;
 
+  /// O diretor do medo: ele aprende como você joga (desligado, é sorteio).
+  bool fearDirector = true;
+
+  /// A canção: a borda da tela pulsa na batida (para quem ouve mal).
+  bool beatPulse = false;
+
+  /// A canção: o atraso do som até o ouvido, em ms (fone Bluetooth ~200).
+  /// O "no tempo" do choque é medido com esse desconto.
+  int songDelayMs = 0;
+
   Map<String, Object> toJson() => {
     'volume': volume,
     'vibration': vibration,
@@ -29,6 +39,9 @@ class Settings {
     'invertTurn': invertTurn,
     'dragOnly': dragOnly,
     'sound3d': sound3d,
+    'fearDirector': fearDirector,
+    'beatPulse': beatPulse,
+    'songDelayMs': songDelayMs,
   };
 
   void load(Map<String, dynamic> j) {
@@ -39,6 +52,9 @@ class Settings {
     invertTurn = j['invertTurn'] as bool? ?? invertTurn;
     dragOnly = j['dragOnly'] as bool? ?? dragOnly;
     sound3d = j['sound3d'] as bool? ?? sound3d;
+    fearDirector = j['fearDirector'] as bool? ?? fearDirector;
+    beatPulse = j['beatPulse'] as bool? ?? beatPulse;
+    songDelayMs = (j['songDelayMs'] as num?)?.round() ?? songDelayMs;
   }
 }
 
@@ -137,7 +153,8 @@ class Save extends ChangeNotifier {
       final rec = recordOf(r.night);
       rec.wins++;
       if (rec.bestTime == null || r.time < rec.bestTime!) rec.bestTime = r.time;
-      if (r.night + 1 > unlocked) unlocked = r.night + 1;
+      // A noite extra (A canção, 0) não libera noite nenhuma.
+      if (r.night >= 1 && r.night + 1 > unlocked) unlocked = r.night + 1;
     } else {
       recordOf(r.night).deaths++;
     }

@@ -1,6 +1,11 @@
 /// A história, contada antes de cada noite. Original: o ateliê, o manequim e
 /// a mariposa são deste jogo.
 String storyFor(int night) => switch (night) {
+  // A noite extra, A canção (songNight, em lullaby.dart).
+  0 =>
+    'No fundo do casulo aberto havia uma caixinha de música do ateliê, de '
+        'corda. Ninguém deu corda, e ela tocou. Ele anda no compasso dela. '
+        'Quanto mais perto, mais depressa ela toca, e mais torta.',
   1 =>
     'O Ateliê Valente fechou depois de quarenta anos. No leilão, ninguém quis '
         'o manequim do fundo da loja, o de madeira rachada. Eu paguei dez reais. '

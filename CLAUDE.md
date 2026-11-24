@@ -25,7 +25,9 @@ Terror de celular (Android; Windows só para testar). Idioma: PT-BR. Repositóri
 - Conquistas: `lib/game/achievements.dart` (`earnedBy(NightResult)`); o jogo conta `lanternTime`, `misses`, `perfectHits`; `Save.finish` guarda recorde e conquistas. Diário: `JournalScreen` com `storyFor` e `foundAfter` (`lib/game/story.dart`).
 - Noites: 2 = fintas (`feintChance`), 3 = corrida invisível (`cloakedCharge`), 4+ = a Mariposa (`moth`: avança com a luz acesa, recua no escuro). `Rules.novelty(n)` é o texto do que a noite traz.
 - Táticas (`Tactic`): cada `_arrive` sorteia uma de `Rules.tactics`, nunca a mesma seguida, e a primeira da noite é `roam`. `statue` (congela com `lit && inBeam`, `pose` muda quando a luz sai), `ambush` (`lurking`: invisível, sem chiado nem `arrive`; depois `CueKind.breath` atrás, `ambushWarnSeconds`, e corrida mais lenta por `ambushChargeFactor`), `blackout` (em `blackoutAt` liga `blackout`, que apaga `lit`; passos a cada 0,55 s; choque com mira 30% mais larga). Noite 1: roam+statue; 2: +ambush; 3: +blackout.
+- Diretor do medo: `lib/game/director.dart` (`FearDirector`, Dart puro e sem `Random` próprio: o `roll` vem do `_rng` do jogo, então segue determinístico pelo seed). Observa olhar por setor do quarto (`look`), lanterna, tempo até achar o chiado e o resultado de cada aparição (`Outcome`); escolhe a tática (`nextTactic`, pesos 0,5–3, sem repetir, primeira = roam), o lado (`side`, até 85% para o esquecido) e dosa `faceFlash`/sustos falsos com respiro (`calm`) depois de susto forte. `VigilGame(director:)`; sem ele, sorteio como antes. A `GameScreen` mantém o mesmo diretor no "De novo". Liga/desliga em `Settings.fearDirector`. Recentralizar: `VigilGame.recenter()` gira o mundo todo (e a memória do diretor) para `heading = 0`; botão `recentralizar` no HUD.
 - Sustos: `faceFlash` (o rosto pisca no feixe, `faceFlashPerSecond`, só com a luz acesa); ao perder, `_doom` (escuro e `Sounds.hush()` por 0,55 s) e então `ScarePainter` (`scareSeconds`) com `drawScareFace` de `mannequin.dart`. Sons novos em `gerar_sons.py`: `respiro` (com 3D), `apagao`, `rosto`, `susto`.
+- A canção (noite extra `songNight = 0`, SEN-06; liberada depois da noite 4): `lib/game/lullaby.dart` (`BeatMap` lê `assets/musica/cancao.json`, `SongClock` com janela ±80 ms e `sync` pela posição do áudio) e `VigilGame(song:)` + `Rules.lullaby()` (avança só em `_onBeat`; finta, chiado e `CueKind.offbeat` fora do tempo; `songTempo`/`songDetune` misturam `cancao.wav` e `cancao_torta.wav` no `SongPlayer`). Música: `python tools/gerar_cancao.py assets/musica`; trocar: `python tools/gerar_batidas.py musica.mp3 assets/musica/cancao.json` (librosa ou numpy; `--conferir` compara), e substituir os dois WAV.
 - Emulador para testar sem o celular: ver "Emulador" abaixo.
 
 ## Emulador
@@ -38,6 +40,6 @@ APK feito na máquina (`flutter build apk --release`, assinado com a chave de de
 
 ## Riscos conhecidos
 
-- O giroscópio deriva; não há recentralizar (a posição dele é relativa, então o efeito é pequeno).
+- O giroscópio deriva; o recentralizar (bússola no HUD) redefine a frente, mas não há referência absoluta: com a câmera, ele ainda escorrega devagar pelo quarto real.
 - Girar o corpo cansa: noites curtas (3 a 6 espantos).
 - Sem fone, perde metade das pistas.

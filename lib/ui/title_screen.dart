@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../data/save.dart';
 import '../game/achievements.dart';
+import '../game/lullaby.dart';
 import '../game/story.dart';
 import '../game/vigil_game.dart';
 import 'game_screen.dart';
@@ -249,9 +250,55 @@ class NightsScreen extends StatelessWidget {
           children: [
             for (var n = 1; n <= save.unlocked + 1; n++)
               _tile(context, n, locked: n > save.unlocked),
+            const Divider(color: Colors.white12),
+            _songTile(context),
           ],
         ),
       ),
+    );
+  }
+
+  /// A noite extra: liberada depois de vencer a noite 4.
+  Widget _songTile(BuildContext context) {
+    final locked = save.unlocked <= songUnlockedAfter;
+    final r = save.records[songNight];
+    final parts = [
+      'extra · ele só anda na batida',
+      'espantar ${Rules.lullaby().repelsToWin}×',
+      if (r != null && r.wins > 0) '${r.wins} vitória${r.wins > 1 ? 's' : ''}',
+      if (r?.bestTime case final b?) 'melhor ${clock(b)}',
+      if (r != null && r.deaths > 0)
+        '${r.deaths} morte${r.deaths > 1 ? 's' : ''}',
+    ];
+    return ListTile(
+      key: const Key('cancao'),
+      enabled: !locked,
+      leading: CircleAvatar(
+        backgroundColor: locked ? Colors.white10 : const Color(0x33E8DFC8),
+        child: Icon(
+          locked ? Icons.lock : Icons.music_note,
+          size: 18,
+          color: locked ? Colors.white38 : bone,
+        ),
+      ),
+      title: const Text('A canção'),
+      subtitle: Text(
+        locked
+            ? 'Extra: vença a noite $songUnlockedAfter para liberar'
+            : parts.join(' · '),
+      ),
+      onTap: locked
+          ? null
+          : () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StoryScreen(
+                  save: save,
+                  night: songNight,
+                  useSensors: useSensors,
+                ),
+              ),
+            ),
     );
   }
 
@@ -343,6 +390,8 @@ class _StoryScreenState extends State<StoryScreen>
     ),
   );
 
+  bool get _song => widget.night == songNight;
+
   @override
   Widget build(BuildContext context) {
     final novelty = Rules.novelty(widget.night);
@@ -361,7 +410,7 @@ class _StoryScreenState extends State<StoryScreen>
               children: [
                 const Spacer(),
                 Text(
-                  'NOITE ${widget.night}',
+                  _song ? 'EXTRA · A CANÇÃO' : 'NOITE ${widget.night}',
                   style: const TextStyle(
                     color: Colors.white38,
                     letterSpacing: 6,
@@ -392,7 +441,11 @@ class _StoryScreenState extends State<StoryScreen>
                   height: 52,
                   child: FilledButton(
                     onPressed: _start,
-                    child: Text('Começar a noite ${widget.night}'),
+                    child: Text(
+                      _song
+                          ? 'Dar corda na caixinha'
+                          : 'Começar a noite ${widget.night}',
+                    ),
                   ),
                 ),
               ],
@@ -404,7 +457,7 @@ class _StoryScreenState extends State<StoryScreen>
   }
 }
 
-/// Som, vibração, câmera e giro.
+/// Som, vibração, câmera, giro, o diretor do medo e a acessibilidade.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.save});
 
@@ -489,6 +542,49 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 value: s.dragOnly,
                 onChanged: (v) => set(() => s.dragOnly = v),
+              ),
+              const _Header('Medo'),
+              SwitchListTile(
+                key: const Key('diretor'),
+                title: const Text('Diretor do medo'),
+                subtitle: const Text(
+                  'Ele aprende como você joga: vem pelo lado que você '
+                  'esquece e repete o que mais te apertou. Desligado, '
+                  'é tudo sorteio.',
+                ),
+                value: s.fearDirector,
+                onChanged: (v) => set(() => s.fearDirector = v),
+              ),
+              const _Header('Acessibilidade'),
+              SwitchListTile(
+                key: const Key('pulso'),
+                title: const Text('Pulso da batida (A canção)'),
+                subtitle: const Text(
+                  'A borda da tela acende no tempo da música, para jogar '
+                  'sem ouvir bem.',
+                ),
+                value: s.beatPulse,
+                onChanged: (v) => set(() => s.beatPulse = v),
+              ),
+              ListTile(
+                title: Text('Atraso do som: ${s.songDelayMs} ms'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Se o choque na batida conta como "fora do tempo", '
+                      'aumente. Fone Bluetooth: uns 200 ms.',
+                    ),
+                    Slider(
+                      key: const Key('atraso'),
+                      value: s.songDelayMs.toDouble(),
+                      max: 300,
+                      divisions: 30,
+                      label: '${s.songDelayMs} ms',
+                      onChanged: (v) => set(() => s.songDelayMs = v.round()),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

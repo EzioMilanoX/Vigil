@@ -9,6 +9,8 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import '../data/save.dart';
 import '../game/achievements.dart';
+import '../game/director.dart';
+import '../game/lullaby.dart';
 import '../game/tutorial.dart';
 import '../game/vigil_game.dart';
 import 'room_painter.dart';
@@ -25,6 +27,7 @@ class GameScreen extends StatefulWidget {
     this.tutorial = false,
     this.seed,
     this.useSensors = true,
+    this.song,
     @visibleForTesting this.debugGame,
   });
 
@@ -39,6 +42,10 @@ class GameScreen extends StatefulWidget {
 
   /// Giroscópio, câmera e som (desligados nos testes).
   final bool useSensors;
+
+  /// A canção (noite [songNight]): as batidas. Sem elas, lê
+  /// `assets/musica/cancao.json` (e, se falhar, um metrônomo a 72).
+  final BeatMap? song;
 
   /// Uma noite já montada, para testes e capturas de tela.
   final VigilGame? debugGame;
@@ -55,6 +62,12 @@ class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late VigilGame _game;
   TutorialCoach? _coach;
+
+  /// O diretor do medo desta noite: lembra de você também no "De novo".
+  FearDirector? _director;
+
+  /// "Frente aqui": segundos que o aviso de recentralizar ainda fica.
+  double _recentered = 0;
   late final Ticker _ticker;
   Duration _last = Duration.zero;
   double _clock = 0;
@@ -109,6 +122,19 @@ class _GameScreenState extends State<GameScreen>
   /// Conquistas ganhas nesta noite, para a tela do fim.
   var _newAchievements = <Achievement>[];
 
+  /// A canção: as batidas, a música, e se ela já começou (antes disso, a
+  /// noite espera: o relógio dele é a música).
+  BeatMap? _beats;
+  SongPlayer? _music;
+  bool _ready = true;
+  double _syncIn = 0;
+
+  /// "fora do tempo": segundos que o aviso ainda fica.
+  double _offBeat = 0;
+
+  bool get _isSong => widget.night == songNight && !widget.tutorial;
+  String get _nightName => _isSong ? 'A canção' : 'Noite ${widget.night}';
+
   Settings get _settings => widget.save.settings;
 
   @override
@@ -116,7 +142,13 @@ class _GameScreenState extends State<GameScreen>
     if (_perf) SchedulerBinding.instance.addTimingsCallback(_onTimings);
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (!widget.tutorial && _settings.fearDirector) _director = FearDirector();
+    if (_isSong) {
+      _beats = widget.song;
+      if (widget.useSensors) _music = SongPlayer(volume: _settings.volume);
+    }
     _newNight();
+    if (_isSong && _beats == null) _loadSong();
     if (widget.debugGame case final g?) _game = g;
     _ticker = createTicker(_tick)..start();
     if (widget.useSensors && !_settings.dragOnly) {
@@ -137,6 +169,50 @@ class _GameScreenState extends State<GameScreen>
       _sounds = Sounds(volume: _settings.volume, binaural: _settings.sound3d);
       if (_settings.camera) _openCamera();
     }
+  }
+
+  /// Lê as batidas da música; sem elas, um metrônomo (o jogo não trava).
+  Future<void> _loadSong() async {
+    _ready = false;
+    BeatMap map;
+    try {
+      map = BeatMap.parse(
+        await rootBundle.loadString('assets/musica/cancao.json'),
+      );
+    } catch (_) {
+      map = BeatMap.metronome();
+    }
+    if (!mounted) return;
+    _beats = map;
+    setState(_newNight);
+  }
+
+  /// A música começa do zero junto com a noite. Até ela tocar, a noite
+  /// espera; sem áudio (testes, volume zero), anda pelo relógio do jogo.
+  Future<void> _startMusic() async {
+    final m = _music;
+    if (m == null || _beats == null) {
+      _ready = _beats != null;
+      return;
+    }
+    _ready = false;
+    final ok = await m.start();
+    if (!mounted) return;
+    setState(() {
+      _ready = true;
+      _last = Duration.zero;
+      _syncIn = ok ? 0.5 : double.infinity;
+    });
+  }
+
+  /// O som manda: puxa o relógio da canção para onde a música está (menos o
+  /// atraso do som até o ouvido, das configurações).
+  Future<void> _syncSong() async {
+    final pos = await _music?.position();
+    final s = _game.song;
+    if (pos == null || s == null || !mounted) return;
+    if (_paused || !_ready || _game.phase != Phase.playing) return;
+    s.sync(pos - _settings.songDelayMs / 1000 * s.tempo);
   }
 
   Future<void> _openCamera() async {
@@ -174,7 +250,11 @@ class _GameScreenState extends State<GameScreen>
     if (on) {
       _game.lanternHeld = false;
       _sounds?.silence();
+      _music?.pause();
       _syncTorch();
+    } else if (_ready) {
+      _music?.resume();
+      _syncIn = 0.3;
     }
   }
 
@@ -204,7 +284,11 @@ class _GameScreenState extends State<GameScreen>
       seed: widget.seed ?? DateTime.now().millisecondsSinceEpoch,
       rules: widget.tutorial
           ? const Rules(chargeSeconds: 2.6, batterySeconds: 600)
+          : _isSong
+          ? Rules.lullaby()
           : Rules.forNight(widget.night),
+      director: _director,
+      song: _isSong ? _beats ?? BeatMap.metronome() : null,
     );
     _coach = widget.tutorial ? TutorialCoach(_game) : null;
     _last = Duration.zero;
@@ -214,6 +298,8 @@ class _GameScreenState extends State<GameScreen>
     _paused = false;
     _recorded = false;
     _newAchievements = [];
+    _offBeat = 0;
+    if (_isSong) _startMusic();
   }
 
   @override
@@ -223,6 +309,7 @@ class _GameScreenState extends State<GameScreen>
     _gyro?.cancel();
     _accel?.cancel();
     _sounds?.dispose();
+    _music?.dispose();
     _camera?.dispose();
     _ticker.dispose();
     super.dispose();
@@ -242,6 +329,8 @@ class _GameScreenState extends State<GameScreen>
     _clock += dt;
     _scare = max(0, _scare - dt);
     _shake = max(0, _shake - dt * 2.5);
+    _recentered = max(0, _recentered - dt);
+    _offBeat = max(0, _offBeat - dt);
     if (_doom > 0) {
       _doom -= dt;
       if (_doom <= 0) {
@@ -260,7 +349,7 @@ class _GameScreenState extends State<GameScreen>
         }
       }
     }
-    if (_paused) {
+    if (_paused || !_ready) {
       setState(() {});
       return;
     }
@@ -273,6 +362,16 @@ class _GameScreenState extends State<GameScreen>
     _coach?.update(dt);
     if (before == Phase.playing && _game.phase != Phase.playing) _ended();
     for (final cue in _game.takeCues()) {
+      // Na canção, ele dá um passo a cada batida: sem clarão nem vibração em
+      // cada um (entregaria o lado e a batida); só o som e os passos perto.
+      final quietStep =
+          _game.song != null &&
+          !cue.near &&
+          (cue.kind == CueKind.step || cue.kind == CueKind.offbeat);
+      if (quietStep) {
+        _sounds?.cue(cue);
+        continue;
+      }
       switch (cue.kind) {
         case CueKind.shadow:
           _shadow = 0;
@@ -296,6 +395,14 @@ class _GameScreenState extends State<GameScreen>
     _sounds?.staticLevel(playing ? _game.staticLevel : 0);
     _sounds?.mothLevel(playing ? _game.mothLevel : 0, sin(_game.mothOffset));
     _heartbeat(dt);
+    if (_game.song != null && playing) {
+      _music?.mix(_game.songTempo, _game.songDetune);
+      _syncIn -= dt;
+      if (_syncIn <= 0) {
+        _syncIn = 1;
+        _syncSong();
+      }
+    }
     _syncTorch();
     _flash = max(0, _flash - dt * 1.5);
     setState(() {});
@@ -304,6 +411,7 @@ class _GameScreenState extends State<GameScreen>
   void _ended() {
     final g = _game;
     _sounds?.silence();
+    _music?.stop();
     if (g.phase == Phase.lost) {
       // Um instante de escuro e silêncio, e então ele.
       _sounds?.hush();
@@ -350,11 +458,21 @@ class _GameScreenState extends State<GameScreen>
     _game.heading = wrapAngle(_game.heading - dx * fieldOfView / width);
   }
 
+  /// A frente de agora vira o "norte" do quarto (corrige a deriva do giro).
+  void _recenter() {
+    if (_paused || _game.phase != Phase.playing) return;
+    _game.recenter();
+    if (_settings.vibration) HapticFeedback.selectionClick();
+    setState(() => _recentered = 1.2);
+  }
+
   void _shock() {
     if (_paused) return;
+    final before = _game.offBeatShocks;
     final hit = _game.shock();
     if (_settings.vibration) HapticFeedback.mediumImpact();
     if (hit) _flash = 0;
+    if (_game.offBeatShocks > before) _offBeat = 0.9;
     setState(() {});
   }
 
@@ -416,7 +534,35 @@ class _GameScreenState extends State<GameScreen>
                   ),
                 ),
               ),
+              if (g.song case final s?
+                  when _settings.beatPulse && g.phase == Phase.playing)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      key: const Key('pulso'),
+                      painter: _BeatPulse(exp(-s.sinceBeat * 7)),
+                    ),
+                  ),
+                ),
               Positioned(top: 0, left: 0, right: 0, child: _hud(g)),
+              if (_offBeat > 0)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: MediaQuery.paddingOf(context).bottom + 150,
+                  child: IgnorePointer(
+                    child: Text(
+                      'fora do tempo',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(
+                          0xFFE8DFC8,
+                        ).withValues(alpha: min(1, _offBeat * 1.5)),
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+                ),
               if (_perf)
                 Positioned(
                   left: 12,
@@ -437,6 +583,16 @@ class _GameScreenState extends State<GameScreen>
                 bottom: 0,
                 child: SafeArea(child: _controls(g)),
               ),
+              if (!_ready && !_paused)
+                const ColoredBox(
+                  color: Colors.black,
+                  child: Center(
+                    child: Text(
+                      'dando corda na caixinha...',
+                      style: TextStyle(color: Colors.white38, letterSpacing: 2),
+                    ),
+                  ),
+                ),
               if (_paused) _pauseMenu(),
               if (_doom > 0)
                 const Positioned.fill(child: ColoredBox(color: Colors.black))
@@ -469,6 +625,22 @@ class _GameScreenState extends State<GameScreen>
             onPressed: () => _pause(true),
             icon: const Icon(Icons.pause, color: Colors.white54),
           ),
+          // Discreto: a frente de agora vira a frente do quarto.
+          IconButton(
+            key: const Key('recentralizar'),
+            tooltip: 'Recentralizar: a frente é aqui',
+            onPressed: _recenter,
+            icon: Icon(
+              Icons.explore_outlined,
+              color: _recentered > 0 ? const Color(0xFFE8DFC8) : Colors.white24,
+              size: 20,
+            ),
+          ),
+          if (_recentered > 0)
+            const Text(
+              'frente aqui  ',
+              style: TextStyle(color: Colors.white38, fontSize: 12),
+            ),
           Icon(
             Icons.battery_std,
             color: g.battery < g.rules.lowBattery
@@ -497,9 +669,7 @@ class _GameScreenState extends State<GameScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.tutorial
-                          ? 'Treino   '
-                          : 'Noite ${widget.night}   ',
+                      widget.tutorial ? 'Treino   ' : '$_nightName   ',
                       style: const TextStyle(color: Colors.white38),
                     ),
                     if (!widget.tutorial)
@@ -668,13 +838,29 @@ class _GameScreenState extends State<GameScreen>
               const SizedBox(height: 8),
               Text(
                 won
-                    ? 'Noite ${widget.night} em $minutes:$seconds.'
+                    ? '$_nightName em $minutes:$seconds.'
                           '${rec.bestTime == g.time ? ' Recorde!' : ''}'
-                    : 'Noite ${widget.night}: espantou ${g.repels} de '
+                    : '$_nightName: espantou ${g.repels} de '
                           '${g.rules.repelsToWin}.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white54),
               ),
+              if (g.song != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Choques fora do tempo: ${g.offBeatShocks}.',
+                    style: const TextStyle(color: Colors.white38),
+                  ),
+                ),
+              if (won && widget.night == songUnlockedAfter)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Chip(
+                    avatar: Icon(Icons.music_note, size: 18),
+                    label: Text('Liberou a noite extra: A canção'),
+                  ),
+                ),
               for (final a in _newAchievements)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
@@ -684,7 +870,7 @@ class _GameScreenState extends State<GameScreen>
                   ),
                 ),
               const SizedBox(height: 24),
-              if (won)
+              if (won && !_isSong)
                 FilledButton(
                   onPressed: () => _toStory(widget.night + 1),
                   child: Text('Noite ${widget.night + 1}'),
@@ -705,6 +891,28 @@ class _GameScreenState extends State<GameScreen>
       ),
     );
   }
+}
+
+/// A canção (acessibilidade): a borda da tela acende na batida e apaga.
+class _BeatPulse extends CustomPainter {
+  _BeatPulse(this.strength);
+  final double strength;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (strength < 0.02) return;
+    canvas.drawRect(
+      (Offset.zero & size).deflate(4),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..color = const Color(0xFFE8DFC8).withValues(alpha: 0.55 * strength)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BeatPulse old) => old.strength != strength;
 }
 
 class _RoundButton extends StatelessWidget {

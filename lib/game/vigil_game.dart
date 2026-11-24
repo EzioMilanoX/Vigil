@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'director.dart';
+import 'lullaby.dart';
+
 /// Uma volta inteira, em radianos.
 const tau = 2 * pi;
 
@@ -84,6 +87,9 @@ enum CueKind {
 
   /// Susto falso: o rosto dele pisca no feixe.
   face,
+
+  /// A canção: um passo fora do tempo, que não é ele andando (finta).
+  offbeat,
 }
 
 /// Um aviso de som vindo de um lado. [pan] vai de -1 (esquerda) a 1 (direita).
@@ -136,6 +142,12 @@ class Rules {
     this.ambushWarnSeconds = 0.8,
     this.ambushChargeFactor = 1.35,
     this.blackoutAt = 0.62,
+    this.beatStep = 0.045,
+    this.beatOrbit = 0.22,
+    this.chargeBeats = 4,
+    this.beatWindow = 0.08,
+    this.offbeatPerSecond = 0,
+    this.tempoRise = 0.3,
   });
 
   /// Quantas vezes é preciso espantá-lo para amanhecer.
@@ -198,6 +210,22 @@ class Rules {
   /// Apagão: a essa distância a luz morre.
   final double blackoutAt;
 
+  /// A canção: o quanto ele chega perto e gira em volta a cada batida.
+  final double beatStep;
+  final double beatOrbit;
+
+  /// A canção: em quantas batidas a corrida chega em você.
+  final int chargeBeats;
+
+  /// A canção: meia janela do choque em volta da batida (s reais).
+  final double beatWindow;
+
+  /// A canção: chance por segundo de um passo falso fora do tempo.
+  final double offbeatPerSecond;
+
+  /// A canção: o quanto a música acelera com ele em cima de você.
+  final double tempoRise;
+
   /// A noite [night] (1, 2, ...). A 2 traz as fintas; a 3, a corrida
   /// invisível; a 4, a Mariposa. Cada uma pede mais espantos, mais rápido.
   factory Rules.forNight(int night) {
@@ -223,8 +251,25 @@ class Rules {
     );
   }
 
+  /// A noite extra "A canção": ele só anda na batida da música, e o choque
+  /// só pega no tempo. Só rondar (as outras táticas brigam com o ritmo); as
+  /// fintas, o chiado e os sumiços vêm fora do tempo.
+  factory Rules.lullaby() => const Rules(
+    repelsToWin: 4,
+    cloakPerSecond: 0.15,
+    feintChance: 0.3,
+    shockCooldown: 1,
+    fakeScarePerSecond: 0.04,
+    faceFlashPerSecond: 0.04,
+    offbeatPerSecond: 0.18,
+  );
+
   /// O que a noite traz de novo, para a tela de antes dela.
   static String? novelty(int night) => switch (night) {
+    songNight =>
+      'Ele só anda na batida da música. Quando ele correr, choque no tempo '
+          'da batida, mirando nele. Fora do tempo, o choque se perde. E nem '
+          'todo passo é dele.',
     1 =>
       'Às vezes ele congela quando a luz bate. Não solte: no escuro, '
           'ele anda depressa.',
@@ -241,15 +286,36 @@ class Rules {
 
 /// Uma noite de V.I.G.I.L.: você parado, o Manequim andando em volta. Ele
 /// some (só o chiado denuncia), a lanterna o revela, e quando ele corre você
-/// tem um instante para acertar o choque. Determinístico dado o [seed].
+/// tem um instante para acertar o choque. Determinístico dado o [seed] (e,
+/// com [director], dado o que o jogador faz).
 class VigilGame {
-  VigilGame({int seed = 0, this.rules = const Rules()}) : _rng = Random(seed) {
+  VigilGame({
+    int seed = 0,
+    this.rules = const Rules(),
+    this.director,
+    BeatMap? song,
+  }) : _rng = Random(seed),
+       song = song == null ? null : SongClock(song, window: rules.beatWindow) {
+    director?.startNight();
     _arrive(first: true);
     mothAngle = wrapAngle(angle + pi);
   }
 
   final Rules rules;
   final Random _rng;
+
+  /// O diretor do medo: sem ele, tática e lado são puro sorteio.
+  final FearDirector? director;
+
+  /// A canção (noite extra): com ela, ele só anda na batida.
+  final SongClock? song;
+
+  /// A canção: a corrida chegou em você na batida; ainda dá para acertar o
+  /// choque até a janela fechar ([Rules.beatWindow] depois da batida).
+  bool _arrived = false;
+
+  /// A canção: choques fora do tempo (também contam em [misses]).
+  int offBeatShocks = 0;
 
   /// Para onde você (e o celular) está virado.
   double heading = 0;
@@ -299,6 +365,13 @@ class VigilGame {
 
   /// O rosto piscando no feixe (susto falso): segundos que ainda faltam.
   double faceFlash = 0;
+
+  /// Para o diretor: erros nesta aparição, tempo correndo sem você mirar
+  /// nele, e há quanto tempo ele está invisível sem você achar o chiado
+  /// (negativo = já achou).
+  int _missesHere = 0;
+  double _lateAim = 0;
+  double _hiddenFor = 0;
 
   /// Para o recorde e as conquistas.
   double lanternTime = 0;
@@ -366,16 +439,24 @@ class VigilGame {
   bool shock() {
     if (phase != Phase.playing || shockReady > 0) return false;
     shockReady = rules.shockCooldown;
-    final hit =
-        mode == Mode.charging &&
-        distance <= rules.shockWindow &&
-        offset.abs() <= rules.aimHalfWidth * (blackout ? 1.3 : 1);
+    final aimed = offset.abs() <= rules.aimHalfWidth * (blackout ? 1.3 : 1);
+    final s = song;
+    // Com a canção, a janela é o tempo (±80 ms da batida), não a distância.
+    final hit = s != null
+        ? mode == Mode.charging && s.inWindow && aimed
+        : mode == Mode.charging && distance <= rules.shockWindow && aimed;
     if (!hit) {
+      if (s != null && !s.inWindow) offBeatShocks++;
       misses++;
+      if (present) _missesHere++;
       _cue(CueKind.miss);
       return false;
     }
-    if (distance <= rules.shockWindow * 0.5) perfectHits++;
+    final perfect = s != null
+        ? s.offset.abs() <= 0.03
+        : distance <= rules.shockWindow * 0.5;
+    if (perfect) perfectHits++;
+    _arrived = false;
     _cue(CueKind.hit, near: true);
     repels++;
     mode = Mode.gone;
@@ -383,6 +464,15 @@ class VigilGame {
     blackout = false;
     _chargeFactor = 1;
     _goneLeft = rules.goneSeconds;
+    if (director case final d? when !scripted) {
+      final o = _missesHere > 0 || _lateAim > 0.5
+          ? Outcome.close
+          : _lateAim < 0.2
+          ? Outcome.easy
+          : Outcome.normal;
+      d.result(tactic, o);
+      _goneLeft += d.breatherAfter(o);
+    }
     if (repels >= rules.repelsToWin && !scripted) phase = Phase.won;
     return true;
   }
@@ -414,12 +504,20 @@ class VigilGame {
         (mode == Mode.charging && battery < 0.5 ? 0.12 : 0.0);
     flickerOff = lanternHeld && battery > 0 && _rng.nextDouble() < failing;
 
+    final d = scripted ? null : director;
+    if (d != null) {
+      d.look(dt, heading: heading, lit: lit);
+      _watchStatic(d, dt);
+    }
+
     if (!scripted) {
       _fakeStatic(dt);
       _fakeScares(dt);
       _faceFlashes(dt);
     }
     _moth(dt);
+
+    if (song case final s?) return _rhythm(s, dt);
 
     switch (mode) {
       case Mode.gone:
@@ -428,6 +526,9 @@ class VigilGame {
       case Mode.roaming:
         _roam(dt);
       case Mode.charging:
+        if (offset.abs() > rules.aimHalfWidth * (blackout ? 1.3 : 1)) {
+          _lateAim += dt;
+        }
         distance -= rules.chargeAt / (rules.chargeSeconds * _chargeFactor) * dt;
         if (_feint && distance <= rules.chargeAt * 0.55) {
           // Finta: para no meio, recua um pouco e volta a rodear.
@@ -445,6 +546,7 @@ class VigilGame {
             distance = 0;
             phase = Phase.lost;
             killer = Killer.mannequin;
+            director?.result(tactic, Outcome.caught);
           }
         }
     }
@@ -557,13 +659,129 @@ class VigilGame {
     if (distance <= rules.chargeAt) startCharge();
   }
 
+  /// O quanto ele está perto (0 = longe ou sumido, 1 = em você).
+  double get closeness => present ? (1 - distance).clamp(0.0, 1.0) : 0;
+
+  /// A canção: o andamento (acelera com ele perto).
+  double get songTempo => 1 + rules.tempoRise * closeness;
+
+  /// A canção: o quanto a versão desafinada toma conta (0 a 1).
+  double get songDetune {
+    final x = ((closeness - 0.15) / 0.65).clamp(0.0, 1.0);
+    return x * x * (3 - 2 * x);
+  }
+
+  /// A canção: tudo o que ele faz de verdade acontece na batida; entre
+  /// elas, fica parado. Sumir, o chiado, a finta da corrida e os passos
+  /// falsos vêm fora do tempo (para o ritmo não virar previsão).
+  void _rhythm(SongClock s, double dt) {
+    s.tempo = songTempo;
+    for (final _ in s.advance(dt)) {
+      _onBeat();
+      if (phase != Phase.playing) return;
+    }
+    // A janela conta da batida em que ele chegou, não do começo do quadro.
+    if (_arrived && s.sinceBeat > rules.beatWindow) {
+      _arrived = false;
+      phase = Phase.lost;
+      killer = Killer.mannequin;
+      director?.result(tactic, Outcome.caught);
+      return;
+    }
+    switch (mode) {
+      case Mode.gone:
+        _goneLeft -= dt;
+      case Mode.roaming:
+        if (scripted) break;
+        if (cloaked) {
+          _cloakLeft -= dt;
+          if (_cloakLeft <= 0) cloaked = false;
+        } else if (_rng.nextDouble() < rules.cloakPerSecond * dt) {
+          cloaked = true;
+          _cloakLeft = rules.cloakSeconds * (0.6 + 0.8 * _rng.nextDouble());
+        }
+      case Mode.charging:
+        if (offset.abs() > rules.aimHalfWidth) _lateAim += dt;
+        // Finta: no meio do caminho e no meio entre duas batidas, ele para
+        // e recua (recuar não é avançar: pode fora do tempo).
+        if (_feint &&
+            distance <= rules.chargeAt * 0.55 &&
+            s.sinceBeat >= s.period * 0.5) {
+          mode = Mode.roaming;
+          distance = rules.chargeAt + 0.12;
+          _feint = false;
+          _cue(CueKind.feint);
+        }
+    }
+    if (!scripted &&
+        present &&
+        rules.offbeatPerSecond > 0 &&
+        _rng.nextDouble() < rules.offbeatPerSecond * dt &&
+        s.offset.abs() > 0.2) {
+      _cueAt(CueKind.offbeat, offset + (_rng.nextDouble() - 0.5) * 0.8);
+    }
+  }
+
+  /// Uma batida da canção: o único momento em que ele avança.
+  void _onBeat() {
+    switch (mode) {
+      case Mode.gone:
+        if (_goneLeft <= 0) _arrive();
+      case Mode.roaming:
+        if (scripted) return;
+        if (_rng.nextDouble() < 0.2) _orbitDir = -_orbitDir;
+        final watched = visible && offset.abs() < 0.6;
+        angle = wrapAngle(
+          angle + _orbitDir * rules.beatOrbit * (watched ? 0.4 : 1),
+        );
+        distance -= rules.beatStep * (watched ? 0.6 : 1);
+        _cue(CueKind.step);
+        if (distance <= rules.chargeAt) {
+          startCharge(feint: _rng.nextDouble() < rules.feintChance);
+        }
+      case Mode.charging:
+        if (_arrived) return;
+        distance -= rules.chargeAt / rules.chargeBeats;
+        _cue(CueKind.step, near: true);
+        if (distance <= 1e-9) {
+          if (scripted) {
+            mode = Mode.roaming;
+            distance = rules.chargeAt + 0.1;
+            return;
+          }
+          // Chegou na batida: a janela do choque ainda fica aberta depois.
+          distance = 0;
+          _arrived = true;
+        }
+    }
+  }
+
+  /// Para o diretor: quanto tempo você leva para achar o chiado quando ele
+  /// some (achar = olhar para onde ele está).
+  void _watchStatic(FearDirector d, double dt) {
+    final hidden = present && cloaked && !lurking && !blackout;
+    if (!hidden) {
+      if (_hiddenFor > 0.5) d.staticFound(_hiddenFor, found: false);
+      _hiddenFor = 0;
+      return;
+    }
+    if (_hiddenFor < 0) return;
+    if (offset.abs() < 0.5) {
+      if (_hiddenFor > 0) d.staticFound(_hiddenFor);
+      _hiddenFor = -1;
+    } else {
+      _hiddenFor += dt;
+    }
+  }
+
   void _faceFlashes(double dt) {
     if (faceFlash > 0) {
       faceFlash = max(0, faceFlash - dt);
       return;
     }
     if (!lit || mode == Mode.charging || (visible && inBeam)) return;
-    if (_rng.nextDouble() < rules.faceFlashPerSecond * dt) {
+    final rate = rules.faceFlashPerSecond * (director?.faceRate ?? 1);
+    if (_rng.nextDouble() < rate * dt) {
       faceFlash = 0.16;
       _cueAt(CueKind.face, 0, near: true);
     }
@@ -601,15 +819,20 @@ class VigilGame {
   }
 
   void _fakeScares(double dt) {
-    if (_rng.nextDouble() >= rules.fakeScarePerSecond * dt) return;
+    final rate = rules.fakeScarePerSecond * (director?.scareRate ?? 1);
+    if (_rng.nextDouble() >= rate * dt) return;
     final kind = _rng.nextBool() ? CueKind.knock : CueKind.shadow;
     _cueAt(kind, (_rng.nextDouble() * 2 - 1) * pi);
   }
 
   void _arrive({bool first = false}) {
     final options = rules.tactics;
+    final d = director;
     if (first || options.length < 2) {
       tactic = options.first;
+    } else if (d != null) {
+      // O diretor pesa a que mais surpreende você (nunca a mesma seguida).
+      tactic = d.nextTactic(options, last: tactic, roll: _rng.nextDouble());
     } else {
       final pool = [
         for (final o in options)
@@ -620,6 +843,7 @@ class VigilGame {
     mode = Mode.roaming;
     distance = 1;
     blackout = false;
+    _arrived = false;
     _frozen = false;
     _warnLeft = 0;
     _chargeFactor = 1;
@@ -628,12 +852,29 @@ class VigilGame {
         : 0;
     cloaked = tactic == Tactic.ambush;
     _feint = false;
+    _missesHere = 0;
+    _lateAim = 0;
+    _hiddenFor = 0;
     _orbitDir = _rng.nextBool() ? 1 : -1;
-    // Nunca aparece na sua frente: de lado ou atrás.
-    angle = wrapAngle(
-      heading + (_rng.nextBool() ? 1 : -1) * (1.2 + 1.6 * _rng.nextDouble()),
-    );
+    // Nunca aparece na sua frente: de lado ou atrás. O diretor prefere o
+    // lado do quarto que você mais esquece.
+    final side = d != null
+        ? d.side(heading, _rng.nextDouble())
+        : (_rng.nextBool() ? 1 : -1);
+    angle = wrapAngle(heading + side * (1.2 + 1.6 * _rng.nextDouble()));
     if (!first && tactic != Tactic.ambush) _cue(CueKind.arrive);
+  }
+
+  /// Recentralizar: a frente de agora vira o "norte" do quarto (corrige a
+  /// deriva do giroscópio). Gira o mundo inteiro junto, então nada muda em
+  /// relação a você: ele, a Mariposa e o chiado falso continuam onde estavam.
+  void recenter() {
+    final delta = -heading;
+    heading = 0;
+    angle = wrapAngle(angle + delta);
+    mothAngle = wrapAngle(mothAngle + delta);
+    if (fakeStaticAngle case final f?) fakeStaticAngle = wrapAngle(f + delta);
+    director?.rotate(delta);
   }
 
   void _cue(CueKind kind, {bool near = false}) =>
@@ -643,5 +884,6 @@ class VigilGame {
     _cues.add(
       Cue(kind, sin(d), behind: d.abs() > pi / 2, near: near, angle: d),
     );
+    if (!scripted) director?.scared(kind);
   }
 }

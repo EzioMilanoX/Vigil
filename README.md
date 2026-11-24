@@ -51,6 +51,17 @@ python tools/gerar_sons.py assets/sons                # regera os sons
 - `lib/ui/`: a tela, o desenho do manequim, os sons com pan e a câmera.
 - Os sons são sintetizados por `tools/gerar_sons.py`, sem arquivos de terceiros.
 
+### A música da noite extra (A canção)
+
+A cantiga é original e sintetizada (`python tools/gerar_cancao.py assets/musica`, precisa de numpy): `cancao.wav` (a caixinha), `cancao_torta.wav` (as mesmas notas desafinadas, que o jogo mistura com ele perto) e `cancao.json` (as batidas, em segundos). Para trocar por outra música:
+
+```sh
+python tools/gerar_batidas.py minha.mp3 assets/musica/cancao.json   # acha as batidas
+python tools/gerar_batidas.py minha.wav saida.json --motor numpy    # sem librosa
+```
+
+Depois, troque `cancao.wav` pela música (por exemplo `ffmpeg -i minha.mp3 -ac 1 -ar 22050 assets/musica/cancao.wav`) e `cancao_torta.wav` por uma versão alterada dela, com a mesma duração e os mesmos tempos (ou por uma cópia, se não quiser a desafinação). Usa o librosa se estiver instalado; senão, um detector de ataques em numpy (WAV, ou outros formatos pelo ffmpeg). Músicas sem percussão clara dão batidas ruins: confira o `bpm` no JSON e, se precisar, use `--min-bpm`/`--max-bpm`. `--conferir outro.json` compara com outras batidas.
+
 Nasceu do conceito SEN-05 V.I.G.I.L. da minha biblioteca de ideias. Usa mecânicas do gênero de terror em realidade aumentada: a criatura em volta, a invisibilidade revelada pela luz e o choque no tempo certo. A criatura e a arte são originais.
 
 ## Licença

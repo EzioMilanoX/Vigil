@@ -82,6 +82,7 @@ class Sounds {
       CueKind.breath => ('sons/respiro.wav', 1.0, false),
       CueKind.blackout => ('sons/apagao.wav', 0.9, true),
       CueKind.face => ('sons/rosto.wav', 0.75, true),
+      CueKind.offbeat => ('sons/passo.wav', 0.5, false),
     };
     final name = asset.substring(5, asset.length - 4);
     if (binaural && !centered && _with3d.contains(name)) {
@@ -158,5 +159,114 @@ class Sounds {
       p.dispose();
     }
     _vivos.clear();
+  }
+}
+
+/// A música da noite "A canção": duas faixas com as mesmas notas nos mesmos
+/// tempos (a caixinha e a versão desafinada) tocando juntas em loop. Ele
+/// perto: mais rápida e mais torta.
+class SongPlayer {
+  SongPlayer({this.volume = 1});
+
+  /// O volume geral (configurações). A música fica baixa: as pistas de som
+  /// do jogo vêm primeiro.
+  final double volume;
+
+  static const clean = 'musica/cancao.wav';
+  static const bent = 'musica/cancao_torta.wav';
+
+  final _clean = AudioPlayer();
+  final _bent = AudioPlayer();
+  double _rate = 1;
+  double _detune = -1;
+  bool _started = false;
+  bool _loaded = false;
+
+  /// Prepara e começa as duas juntas, do começo (também no "De novo").
+  /// Devolve se tocou.
+  Future<bool> start() async {
+    if (volume <= 0) return false;
+    try {
+      if (_loaded) {
+        await Future.wait([
+          _clean.seek(Duration.zero),
+          _bent.seek(Duration.zero),
+        ]);
+      } else {
+        for (final (p, asset) in [(_clean, clean), (_bent, bent)]) {
+          await p.setReleaseMode(ReleaseMode.loop);
+          await p.setSource(AssetSource(asset));
+        }
+        _loaded = true;
+      }
+      await mix(1, 0);
+      await Future.wait([_clean.resume(), _bent.resume()]);
+      _started = true;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// O andamento ([rate], 1 = normal) e o quanto a torta toma conta (0 a 1).
+  Future<void> mix(double rate, double detune) async {
+    try {
+      if ((rate - _rate).abs() >= 0.01) {
+        _rate = rate;
+        await Future.wait([
+          _clean.setPlaybackRate(rate),
+          _bent.setPlaybackRate(rate),
+        ]);
+      }
+      if ((detune - _detune).abs() >= 0.03) {
+        _detune = detune;
+        final v = 0.45 * volume;
+        await Future.wait([
+          _clean.setVolume((v * (1 - detune)).clamp(0.0, 1.0)),
+          _bent.setVolume((v * (0.08 + 0.92 * detune)).clamp(0.0, 1.0)),
+        ]);
+      }
+    } catch (_) {}
+  }
+
+  /// Onde a música está, em segundos (null: sem áudio). Se a torta escorregou
+  /// mais de 60 ms, puxa ela de volta para a limpa.
+  Future<double?> position() async {
+    if (!_started) return null;
+    try {
+      final a = await _clean.getCurrentPosition();
+      if (a == null) return null;
+      final b = await _bent.getCurrentPosition();
+      if (b != null && (a - b).inMilliseconds.abs() > 60) await _bent.seek(a);
+      return a.inMicroseconds / 1e6;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> pause() async {
+    try {
+      await Future.wait([_clean.pause(), _bent.pause()]);
+    } catch (_) {}
+  }
+
+  Future<void> resume() async {
+    if (!_started) return;
+    try {
+      await Future.wait([_clean.resume(), _bent.resume()]);
+    } catch (_) {}
+  }
+
+  Future<void> stop() async {
+    _started = false;
+    try {
+      await Future.wait([_clean.stop(), _bent.stop()]);
+    } catch (_) {}
+  }
+
+  void dispose() {
+    _started = false;
+    _clean.dispose();
+    _bent.dispose();
   }
 }

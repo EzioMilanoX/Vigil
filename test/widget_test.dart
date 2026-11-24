@@ -122,6 +122,39 @@ void main() {
     expect(save.settings.invertTurn, isTrue);
   });
 
+  testWidgets('o diretor do medo vem ligado e dá para desligar', (
+    tester,
+  ) async {
+    final save = fresh();
+    expect(save.settings.fearDirector, isTrue);
+    await phone(tester, SettingsScreen(save: save));
+    // Fica no fim da lista: rola até o fim.
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('diretor')));
+    await tester.pump();
+    expect(save.settings.fearDirector, isFalse);
+    expect(save.settings.toJson()['fearDirector'], isFalse);
+    final lido = Settings()..load(save.settings.toJson());
+    expect(lido.fearDirector, isFalse);
+  });
+
+  testWidgets('recentralizar faz da frente de agora o norte', (tester) async {
+    final g = VigilGame(seed: 2)..heading = 2;
+    final offset = g.offset;
+    await phone(
+      tester,
+      GameScreen(save: fresh(), debugGame: g, useSensors: false),
+    );
+    await tester.tap(find.byKey(const Key('recentralizar')));
+    await tester.pump();
+    expect(g.heading, 0);
+    expect(g.offset, closeTo(offset, 0.05));
+    expect(find.text('frente aqui  '), findsOneWidget);
+    await frames(tester, 45);
+    expect(find.text('frente aqui  '), findsNothing);
+  });
+
   test('o tutorial avança quando o jogador faz a coisa certa', () {
     final g = VigilGame(seed: 4, rules: const Rules(chargeSeconds: 2.6));
     final coach = TutorialCoach(g);
